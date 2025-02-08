@@ -105,8 +105,11 @@ def plotdep(energy, order, nsteps, temp):
     for ax in axes: 
         ax.set_title(f"Reduced Temperature, T* = {temp}")
         ax.set_xlabel("MCS")
-      
+    
+    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
+    plt.savefig(f"vs_MCS_plot_{current_datetime}")
     plt.show()
+    
 #=======================================================================
 
 def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
@@ -304,15 +307,17 @@ def main(program, nsteps, nmax, temp, pflag):
         ratio[it] = MC_step(lattice,temp,nmax)
         energy[it] = all_energy(lattice,nmax)
         order[it] = get_order(lattice,nmax)
+
     final = time.time()
     runtime = final-initial
+
     
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps,temp,order[nsteps-1],runtime))
+    print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio: {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps,temp,order[nsteps-1], np.mean(ratio), runtime))
     # Plot final frame of lattice and generate output file
     savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
-    #plotdep(energy, order, nsteps, temp)
+    plotdep(energy, order, nsteps, temp)
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
