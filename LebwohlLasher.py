@@ -5,7 +5,7 @@ This version in 2D.
 
 Run at the command line by typing:
 
-python LebwohlLasher.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>
+python LebwohlLasher.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> (added by myself: <NREPS>)
 
 where:
   ITERATIONS = number of Monte Carlo steps, where 1MCS is when each cell
@@ -13,6 +13,7 @@ where:
   SIZE = side length of square lattice
   TEMPERATURE = reduced temperature in range 0.0 - 2.0.
   PLOTFLAG = 0 for no plot, 1 for energy plot and 2 for angle plot.
+  (added by me: NREPS = number of times to run an experiment (the main function), in order to get a standard deviation on the runtime, for example.)
   
 The initial configuration is set at random. The boundaries
 are periodic throughout the simulation.  During the
@@ -279,61 +280,70 @@ def MC_step(arr,Ts,nmax):
                     arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, nmax, temp, pflag):
-    """
-    Arguments:
-	  program (string) = the name of the program;
-	  nsteps (int) = number of Monte Carlo steps (MCS) to perform;
-      nmax (int) = side length of square lattice to simulate;
-	  temp (float) = reduced temperature (range 0 to 2);
-	  pflag (int) = a flag to control plotting.
-    Description:
-      This is the main function running the Lebwohl-Lasher simulation.
-    Returns:
-      NULL
-    """
-    # Create and initialise lattice
-    lattice = initdat(nmax)
-    # Plot initial frame of lattice
-    plotdat(lattice,pflag,nmax)
-    # Create arrays to store energy, acceptance ratio and order parameter
-    energy = np.zeros(nsteps+1,dtype=np.dtype)
-    ratio = np.zeros(nsteps+1,dtype=np.dtype)
-    order = np.zeros(nsteps+1,dtype=np.dtype)
-    # Set initial values in arrays
-    energy[0] = all_energy(lattice,nmax)
-    ratio[0] = 0.5 # ideal value
-    order[0] = get_order(lattice,nmax)
+def main(program, nsteps, nmax, temp, pflag, nreps):
+    
+    # Create array to store the runtimes
+    rep_runtimes = np.zeros(nreps)
 
-    # Begin doing and timing some MC steps.
-    initial = time.time()
-    for it in range(1,nsteps+1):
-        ratio[it] = MC_step(lattice,temp,nmax)
-        energy[it] = all_energy(lattice,nmax)
-        order[it] = get_order(lattice,nmax)
+    for rep in range(nreps): 
+          
+      """
+      Arguments:
+      program (string) = the name of the program;
+      nsteps (int) = number of Monte Carlo steps (MCS) to perform;
+        nmax (int) = side length of square lattice to simulate;
+      temp (float) = reduced temperature (range 0 to 2);
+      pflag (int) = a flag to control plotting.
+      Description:
+        This is the main function running the Lebwohl-Lasher simulation.
+      Returns:
+        NULL
+      """
+      # Create and initialise lattice
+      lattice = initdat(nmax)
+      # Plot initial frame of lattice
+      plotdat(lattice,pflag,nmax)
+      # Create arrays to store energy, acceptance ratio and order parameter
+      energy = np.zeros(nsteps+1,dtype=np.dtype)
+      ratio = np.zeros(nsteps+1,dtype=np.dtype)
+      order = np.zeros(nsteps+1,dtype=np.dtype)
+      # Set initial values in arrays
+      energy[0] = all_energy(lattice,nmax)
+      ratio[0] = 0.5 # ideal value
+      order[0] = get_order(lattice,nmax)
 
-    final = time.time()
-    runtime = final-initial
+      # Begin doing and timing some MC steps.
+      initial = time.time()
+      for it in range(1,nsteps+1):
+          ratio[it] = MC_step(lattice,temp,nmax)
+          energy[it] = all_energy(lattice,nmax)
+          order[it] = get_order(lattice,nmax)
+
+      final = time.time()
+      runtime = final-initial
+
+      rep_runtimes[rep] = runtime
 
     
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio: {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps,temp,order[nsteps-1], np.mean(ratio), runtime))
+    print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
-    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
-    plotdep(energy, order, nsteps, temp)
+    #plotdep(energy, order, nsteps, temp)
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 #
 if __name__ == '__main__':
-    if int(len(sys.argv)) == 5:
+    if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
         ITERATIONS = int(sys.argv[1])
         SIZE = int(sys.argv[2])
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
-        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG)
+        NREPS =  int(sys.argv[5])
+        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
     else:
         print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
