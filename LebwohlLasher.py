@@ -91,6 +91,24 @@ def plotdat(arr,pflag,nmax):
     ax.set_aspect('equal')
     plt.show()
 #=======================================================================
+
+def plotdep(energy, order, nsteps, temp): 
+    
+    x = np.arange(nsteps + 1)
+
+    fig, axes = plt.subplots((2), figsize = (7, 9))
+    axes[0].plot(x, energy, color = "black")
+    axes[0].set_ylabel("Reduced Energy U/ε")
+    axes[1].plot(x, order, color = "black")
+    axes[1].set_ylabel("Order Parameter, S")
+
+    for ax in axes: 
+        ax.set_title(f"Reduced Temperature, T* = {temp}")
+        ax.set_xlabel("MCS")
+      
+    plt.show()
+#=======================================================================
+
 def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     """
     Arguments:
@@ -294,6 +312,7 @@ def main(program, nsteps, nmax, temp, pflag):
     # Plot final frame of lattice and generate output file
     savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
+    #plotdep(energy, order, nsteps, temp)
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
