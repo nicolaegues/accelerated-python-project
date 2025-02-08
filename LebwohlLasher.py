@@ -22,6 +22,8 @@ domains alternate between old data and new data.
 SH 16-Oct-23
 """
 
+
+
 import sys
 import time
 import datetime
@@ -254,6 +256,8 @@ def MC_step(arr,Ts,nmax):
     xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
+    boltz_random = np.random.uniform(0.0,1.0, size = (nmax, nmax))
+    
     for i in range(nmax):
         for j in range(nmax):
             ix = xran[i,j]
@@ -269,7 +273,7 @@ def MC_step(arr,Ts,nmax):
             # exp( -(E_new - E_old) / T* ) >= rand(0,1)
                 boltz = np.exp( -(en1 - en0) / Ts )
 
-                if boltz >= np.random.uniform(0.0,1.0):
+                if boltz >= boltz_random[i,j]:
                     accept += 1
                 else:
                     arr[ix,iy] -= ang
