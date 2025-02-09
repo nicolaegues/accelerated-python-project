@@ -167,7 +167,7 @@ def one_energy(arr,ix,iy,nmax):
 	Returns:
 	  en (float) = reduced energy of cell.
     """
-    en = 0.0
+    #en = 0.0
     ixp = (ix+1)%nmax # These are the coordinates
     ixm = (ix-1)%nmax # of the neighbours
     iyp = (iy+1)%nmax # with wraparound
@@ -176,14 +176,20 @@ def one_energy(arr,ix,iy,nmax):
 # Add together the 4 neighbour contributions
 # to the energy
 #
-    ang = arr[ix,iy]-arr[ixp,iy]
+    # ang = arr[ix,iy]-arr[ixp,iy]
+    # en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+    # ang = arr[ix,iy]-arr[ixm,iy]
+    # en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+    # ang = arr[ix,iy]-arr[ix,iyp]
+    # en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+    # ang = arr[ix,iy]-arr[ix,iym]
     en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ixm,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iyp]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iym]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+
+    pos = np.full(4, arr[ix, iy])
+    nei = np.array((arr[ixp,iy], arr[ixm,iy],arr[ix,iyp], arr[ix,iym] ))
+    ang = pos - nei
+    en = np.sum(0.5*(1.0 - 3.0*np.cos(ang)**2)) #where en is an array and ang is an array!
+ 
     return en
 #=======================================================================
 def all_energy(arr,nmax):
@@ -328,7 +334,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
-    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
 #=======================================================================
