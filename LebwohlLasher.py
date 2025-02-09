@@ -152,7 +152,7 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
-def one_energy(arr,ix,iy,nmax):
+def one_energy(arr):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -178,11 +178,10 @@ def one_energy(arr,ix,iy,nmax):
 #
 
     en = 0.5*(1.0 - 3.0*np.cos(ang_ixp)**2) 
-    + (1.0 - 3.0*np.cos(ang_ixm)**2) 
-    + (1.0 - 3.0*np.cos(ang_iyp)**2) 
-    + (1.0 - 3.0*np.cos(ang_iym)**2)
+    en += 0.5*(1.0 - 3.0*np.cos(ang_ixm)**2) 
+    en += 0.5*(1.0 - 3.0*np.cos(ang_iyp)**2) 
+    en += 0.5*(1.0 - 3.0*np.cos(ang_iym)**2)
 
-    print(en.shape)
     return en
 #=======================================================================
 def all_energy(arr,nmax):
@@ -196,10 +195,8 @@ def all_energy(arr,nmax):
 	Returns:
 	  enall (float) = reduced energy of lattice.
     """
-    enall = 0.0
-    for i in range(nmax):
-        for j in range(nmax):
-            enall += one_energy(arr,i,j,nmax)
+  
+    enall = np.sum(one_energy(arr))
     return enall
 #=======================================================================
 def get_order(arr,nmax):
@@ -258,43 +255,20 @@ def MC_step(arr,Ts,nmax):
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
     boltz_random = np.random.uniform(0.0,1.0, size = (nmax, nmax))
     
-    ix, iy = 0, 0
-    en0 = one_energy(arr,ix,iy,nmax)
-    arr += aran
-    en1 = one_energy(arr,ix,iy,nmax)
-    accept_mask = en1 <= en0
-    accept = np.sum(accept_mask)
+    en0 = one_energy(arr)
+    arr_new = arr + aran
+    en1 = one_energy(arr_new)
+    
 
     boltz = np.exp( -(en1 - en0) / Ts )
-    boltz_mask = boltz >= boltz_random
+    accept_mask = (en1 <= en0) | (boltz >= boltz_random)
 
-    boltz_mask = ~accept_mask & boltz_mask
-    accept += np.sum(boltz_mask)
-   
-    arr[~boltz_mask] -= aran[~boltz_mask]
-    ##########################################333
+    arr[accept_mask] = arr_new[accept_mask]
+
+    accept = np.sum(accept_mask)
 
     
-    accept = 0
-    for i in range(nmax):
-        for j in range(nmax):
-            ix = xran[i,j]
-            iy = yran[i,j]
-            ang = aran[i,j]
-            en0 = one_energy(arr,ix,iy,nmax)
-            arr[ix,iy] += ang
-            en1 = one_energy(arr,ix,iy,nmax)
-            if en1<=en0:
-                accept += 1
-            else:
-            # Now apply the Monte Carlo test - compare
-            # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-                boltz = np.exp( -(en1 - en0) / Ts )
-
-                if boltz >= boltz_random[i,j]:
-                    accept += 1
-                else:
-                    arr[ix,iy] -= ang
+    ##########################################
     
 
     return accept/(nmax*nmax)
