@@ -204,7 +204,7 @@ def one_energy_vec(arr):
 
     return en
 #=======================================================================
-def all_energy(arr,nmax):
+def all_energy(arr):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -231,20 +231,20 @@ def get_order(arr,nmax):
 	Returns:
 	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
     """
-    Qab = np.zeros((3,3))
     delta = np.eye(3,3)
     #
     # Generate a 3D unit vector for each cell (i,j) and
     # put it in a (3,i,j) array.
     #
     lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
-    for a in range(3):
-        for b in range(3):
-            for i in range(nmax):
-                for j in range(nmax):
-                    Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
+
+    Qab = np.einsum('aij,bij->ab', lab, lab) * 3 - delta
+    #follows general pattern of: np.einsum('input_indices->output_indices', tensor1, tensor2)
+    #summing over i, j: which is why i and j appear in input but not output
+
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
+
     return eigenvalues.max()
 #=======================================================================
 def MC_step(arr,Ts,nmax):
@@ -324,7 +324,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       ratio = np.zeros(nsteps+1,dtype=np.dtype)
       order = np.zeros(nsteps+1,dtype=np.dtype)
       # Set initial values in arrays
-      energy[0] = all_energy(lattice,nmax)
+      energy[0] = all_energy(lattice)
       ratio[0] = 0.5 # ideal value
       order[0] = get_order(lattice,nmax)
 
@@ -332,7 +332,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       initial = time.time()
       for it in range(1,nsteps+1):
           ratio[it] = MC_step(lattice,temp,nmax)
-          energy[it] = all_energy(lattice,nmax)
+          energy[it] = all_energy(lattice)
           order[it] = get_order(lattice,nmax)
 
       final = time.time()
@@ -362,4 +362,5 @@ if __name__ == '__main__':
         main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
     else:
         print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
-#=======================================================================
+# #=======================================================================
+#main("prog", 1000, 20, 0.65, 0, 1)
