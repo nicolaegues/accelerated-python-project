@@ -152,7 +152,7 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
-def one_energy(arr):
+def one_energy(arr,ix,iy,nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -167,7 +167,27 @@ def one_energy(arr):
 	Returns:
 	  en (float) = reduced energy of cell.
     """
+    en = 0.0
+    ixp = (ix+1)%nmax # These are the coordinates
+    ixm = (ix-1)%nmax # of the neighbours
+    iyp = (iy+1)%nmax # with wraparound
+    iym = (iy-1)%nmax #
+#
+# Add together the 4 neighbour contributions
+# to the energy
+#
+    ang = arr[ix,iy]-arr[ixp,iy]
+    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+    ang = arr[ix,iy]-arr[ixm,iy]
+    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+    ang = arr[ix,iy]-arr[ix,iyp]
+    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+    ang = arr[ix,iy]-arr[ix,iym]
+    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+    return en
 
+def one_energy_vec(arr): 
+    
     ang_ixp = arr - np.roll(arr, shift=-1, axis=0)
     ang_ixm = arr - np.roll(arr, shift=1, axis=0)
     ang_iyp = arr - np.roll(arr, shift=-1, axis=1)
@@ -195,8 +215,8 @@ def all_energy(arr,nmax):
 	Returns:
 	  enall (float) = reduced energy of lattice.
     """
-  
-    enall = np.sum(one_energy(arr))
+    
+    enall = np.sum(one_energy_vec(arr))
     return enall
 #=======================================================================
 def get_order(arr,nmax):
@@ -225,7 +245,6 @@ def get_order(arr,nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-
     return eigenvalues.max()
 #=======================================================================
 def MC_step(arr,Ts,nmax):
@@ -250,27 +269,31 @@ def MC_step(arr,Ts,nmax):
     # of the distribution for the angle changes - increases
     # with temperature.
     scale=0.1+Ts
+    accept = 0
     xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
     boltz_random = np.random.uniform(0.0,1.0, size = (nmax, nmax))
     
-    en0 = one_energy(arr)
-    arr_new = arr + aran
-    en1 = one_energy(arr_new)
-    
+    for i in range(nmax):
+        for j in range(nmax):
+            ix = xran[i,j]
+            iy = yran[i,j]
+            ang = aran[i,j]
+            en0 = one_energy(arr,ix,iy,nmax)
+            arr[ix,iy] += ang
+            en1 = one_energy(arr,ix,iy,nmax)
+            if en1<=en0:
+                accept += 1
+            else:
+            # Now apply the Monte Carlo test - compare
+            # exp( -(E_new - E_old) / T* ) >= rand(0,1)
+                boltz = np.exp( -(en1 - en0) / Ts )
 
-    boltz = np.exp( -(en1 - en0) / Ts )
-    accept_mask = (en1 <= en0) | (boltz >= boltz_random)
-
-    arr[accept_mask] = arr_new[accept_mask]
-
-    accept = np.sum(accept_mask)
-
-    
-    ##########################################
-    
-
+                if boltz >= boltz_random[i,j]:
+                    accept += 1
+                else:
+                    arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, nreps):
