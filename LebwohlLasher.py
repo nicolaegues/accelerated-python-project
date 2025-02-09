@@ -167,29 +167,22 @@ def one_energy(arr,ix,iy,nmax):
 	Returns:
 	  en (float) = reduced energy of cell.
     """
-    #en = 0.0
-    ixp = (ix+1)%nmax # These are the coordinates
-    ixm = (ix-1)%nmax # of the neighbours
-    iyp = (iy+1)%nmax # with wraparound
-    iym = (iy-1)%nmax #
+
+    ang_ixp = arr - np.roll(arr, shift=-1, axis=0)
+    ang_ixm = arr - np.roll(arr, shift=1, axis=0)
+    ang_iyp = arr - np.roll(arr, shift=-1, axis=1)
+    ang_iym = arr - np.roll(arr, shift=1, axis=1)
 #
 # Add together the 4 neighbour contributions
 # to the energy
 #
-    # ang = arr[ix,iy]-arr[ixp,iy]
-    # en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    # ang = arr[ix,iy]-arr[ixm,iy]
-    # en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    # ang = arr[ix,iy]-arr[ix,iyp]
-    # en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    # ang = arr[ix,iy]-arr[ix,iym]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
 
-    pos = np.full(4, arr[ix, iy])
-    nei = np.array((arr[ixp,iy], arr[ixm,iy],arr[ix,iyp], arr[ix,iym] ))
-    ang = pos - nei
-    en = np.sum(0.5*(1.0 - 3.0*np.cos(ang)**2)) #where en is an array and ang is an array!
- 
+    en = 0.5*(1.0 - 3.0*np.cos(ang_ixp)**2) 
+    + (1.0 - 3.0*np.cos(ang_ixm)**2) 
+    + (1.0 - 3.0*np.cos(ang_iyp)**2) 
+    + (1.0 - 3.0*np.cos(ang_iym)**2)
+
+    print(en.shape)
     return en
 #=======================================================================
 def all_energy(arr,nmax):
@@ -235,6 +228,7 @@ def get_order(arr,nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
+
     return eigenvalues.max()
 #=======================================================================
 def MC_step(arr,Ts,nmax):
@@ -259,12 +253,29 @@ def MC_step(arr,Ts,nmax):
     # of the distribution for the angle changes - increases
     # with temperature.
     scale=0.1+Ts
-    accept = 0
     xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
     boltz_random = np.random.uniform(0.0,1.0, size = (nmax, nmax))
     
+    ix, iy = 0, 0
+    en0 = one_energy(arr,ix,iy,nmax)
+    arr += aran
+    en1 = one_energy(arr,ix,iy,nmax)
+    accept_mask = en1 <= en0
+    accept = np.sum(accept_mask)
+
+    boltz = np.exp( -(en1 - en0) / Ts )
+    boltz_mask = boltz >= boltz_random
+
+    boltz_mask = ~accept_mask & boltz_mask
+    accept += np.sum(boltz_mask)
+   
+    arr[~boltz_mask] -= aran[~boltz_mask]
+    ##########################################333
+
+    
+    accept = 0
     for i in range(nmax):
         for j in range(nmax):
             ix = xran[i,j]
@@ -284,6 +295,8 @@ def MC_step(arr,Ts,nmax):
                     accept += 1
                 else:
                     arr[ix,iy] -= ang
+    
+
     return accept/(nmax*nmax)
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, nreps):
@@ -334,7 +347,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
-    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
 #=======================================================================
