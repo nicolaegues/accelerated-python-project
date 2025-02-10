@@ -233,7 +233,7 @@ def get_order(arr,nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max()
 #=======================================================================
-#@jit(nopython = True)
+@jit(nopython = True)
 def MC_step(arr,Ts,nmax):
     """
     Arguments:
@@ -259,7 +259,7 @@ def MC_step(arr,Ts,nmax):
     accept = 0
     xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    aran = np.random.normal(scale=scale, size=(nmax,nmax))
+    aran = np.random.normal(0, scale=scale, size=(nmax,nmax))
     for i in range(nmax):
         for j in range(nmax):
             ix = xran[i,j]
@@ -281,6 +281,7 @@ def MC_step(arr,Ts,nmax):
                     arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
+
 def main(program, nsteps, nmax, temp, pflag, nreps):
     
     # Create array to store the runtimes
