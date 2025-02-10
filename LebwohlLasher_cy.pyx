@@ -30,7 +30,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-from libc.math cimport cos
+from libc.math cimport cos, exp
 
 
 #=======================================================================
@@ -241,7 +241,7 @@ def get_order(arr,nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max()
 #=======================================================================
-def MC_step(arr,Ts,nmax):
+def MC_step( double[:, :] arr, double Ts, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -257,16 +257,27 @@ def MC_step(arr,Ts,nmax):
 	Returns:
 	  accept/(nmax**2) (float) = acceptance ratio for current MCS.
     """
-    #
-    # Pre-compute some random numbers.  This is faster than
-    # using lots of individual calls.  "scale" sets the width
-    # of the distribution for the angle changes - increases
-    # with temperature.
-    scale=0.1+Ts
-    accept = 0
-    xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    aran = np.random.normal(scale=scale, size=(nmax,nmax))
+    cdef: 
+        double scale=0.1+Ts
+        int accept = 0
+
+
+        #
+        # Pre-compute some random numbers.  This is faster than
+        # using lots of individual calls.  "scale" sets the width
+        # of the distribution for the angle changes - increases
+        # with temperature.
+
+        int[:, :]  xran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
+        int[:, :]  yran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
+
+        double[:, :]  aran = np.random.normal(scale=scale, size=(nmax,nmax))
+
+        int ix, iy
+        double ang, en0, en1, boltz
+
+
+
     for i in range(nmax):
         for j in range(nmax):
             ix = xran[i,j]
@@ -280,12 +291,13 @@ def MC_step(arr,Ts,nmax):
             else:
             # Now apply the Monte Carlo test - compare
             # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-                boltz = np.exp( -(en1 - en0) / Ts )
+                boltz = exp( -(en1 - en0) / Ts )
 
                 if boltz >= np.random.uniform(0.0,1.0):
                     accept += 1
                 else:
                     arr[ix,iy] -= ang
+
     return accept/(nmax*nmax)
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, nreps):
