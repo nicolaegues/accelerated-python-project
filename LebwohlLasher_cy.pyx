@@ -30,11 +30,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-from libc.math cimport cos, exp
-
+from libc.math cimport cos, sin, exp, M_PI
 
 #=======================================================================
-def initdat(nmax):
+def initdat(int nmax):
     """
     Arguments:
       nmax (int) = size of lattice to create (nmax,nmax).
@@ -45,10 +44,13 @@ def initdat(nmax):
 	Returns:
 	  arr (float(nmax,nmax)) = array to hold lattice.
     """
-    arr = np.random.random_sample((nmax,nmax))*2.0*np.pi
+    cdef: 
+      double[:, :] arr
+
+    arr = np.random.random_sample((nmax,nmax))*2.0*M_PI
     return arr
 #=======================================================================
-def plotdat(arr,pflag,nmax):
+def plotdat(double[:, :] arr, int pflag, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -67,13 +69,23 @@ def plotdat(arr,pflag,nmax):
 	Returns:
       NULL
     """
+
+    cdef: 
+      double[:, :] u, v
+      int[:] x, y 
+      int[:, :] cols
+      int i, j
+
+
     if pflag==0:
         return
+
     u = np.cos(arr)
     v = np.sin(arr)
     x = np.arange(nmax)
     y = np.arange(nmax)
     cols = np.zeros((nmax,nmax))
+
     if pflag==1: # colour the arrows according to energy
         mpl.rc('image', cmap='rainbow')
         for i in range(nmax):
@@ -196,7 +208,7 @@ def one_energy( double[:, :] arr, int ix, int iy,int nmax):
 
     return en
 #=======================================================================
-def all_energy(arr,nmax):
+def all_energy(double[:, :] arr, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -207,13 +219,16 @@ def all_energy(arr,nmax):
 	Returns:
 	  enall (float) = reduced energy of lattice.
     """
-    enall = 0.0
+    cdef: 
+      double enall = 0.0
+      int i, j
+
     for i in range(nmax):
         for j in range(nmax):
             enall += one_energy(arr,i,j,nmax)
     return enall
 #=======================================================================
-def get_order(arr,nmax):
+def get_order(double[:, :] arr, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -225,21 +240,31 @@ def get_order(arr,nmax):
 	Returns:
 	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
     """
+
+    cdef: 
+     
+      double[:, :] delta = np.eye(3,3)
+      #
+      # Generate a 3D unit vector for each cell (i,j) and
+      # put it in a (3,i,j) array.
+      #
+      double[:, :, :] lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
+
+      int a, b, i, j
+      double[:] eigenvalues
+      double[:,:] eigenvectors
+
     Qab = np.zeros((3,3))
-    delta = np.eye(3,3)
-    #
-    # Generate a 3D unit vector for each cell (i,j) and
-    # put it in a (3,i,j) array.
-    #
-    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
+
     for a in range(3):
         for b in range(3):
             for i in range(nmax):
                 for j in range(nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
+
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-    return eigenvalues.max()
+    return max(eigenvalues)
 #=======================================================================
 def MC_step( double[:, :] arr, double Ts, int nmax):
     """
@@ -300,10 +325,22 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
 
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, nmax, temp, pflag, nreps):
-    
+def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
+  
+
+    cdef: 
+      double[:] rep_runtimes
+      int rep 
+      double[:, :] lattice
+      double[:] energy =  np.zeros(nsteps+1,dtype=np.float64)
+      double[:] order =  np.zeros(nsteps+1,dtype=np.float64)
+      double[:] ratio =  np.zeros(nsteps+1,dtype=np.float64)
+      double initial, final, runtime
+
+
     # Create array to store the runtimes
     rep_runtimes = np.zeros(nreps)
+
 
     for rep in range(nreps): 
           
@@ -324,9 +361,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       # Plot initial frame of lattice
       plotdat(lattice,pflag,nmax)
       # Create arrays to store energy, acceptance ratio and order parameter
-      energy = np.zeros(nsteps+1,dtype=np.dtype)
-      ratio = np.zeros(nsteps+1,dtype=np.dtype)
-      order = np.zeros(nsteps+1,dtype=np.dtype)
+
       # Set initial values in arrays
       energy[0] = all_energy(lattice,nmax)
       ratio[0] = 0.5 # ideal value

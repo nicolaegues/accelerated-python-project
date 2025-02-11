@@ -6,3 +6,6 @@ LebwohlLasher_cy.cpython-312-x86_64-linux-gnu.so
 
 #Ignore build directory
 build/
+
+#cython html annotations file
+LebwohlLasher_cy.html
