@@ -48,7 +48,7 @@ def initdat(int nmax):
     cdef double[:, :] arr = np.random.random_sample((nmax,nmax))*2.0*M_PI
     return arr
 #=======================================================================
-def plotdat(arr,pflag,nmax):
+def plotdat(double[:, :] arr, int pflag,int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -67,13 +67,19 @@ def plotdat(arr,pflag,nmax):
 	Returns:
       NULL
     """
+
+    cdef: 
+      double[:, :] u = np.cos(arr)
+      double[:, :] v = np.sin(arr)
+      double[:, :] cols = np.zeros((nmax,nmax))
+       
+      double[:] x =  np.arange(nmax, dtype = np.float64)
+      double[:] y =  np.arange(nmax, dtype = np.float64)
+      int i, j
+
     if pflag==0:
         return
-    u = np.cos(arr)
-    v = np.sin(arr)
-    x = np.arange(nmax)
-    y = np.arange(nmax)
-    cols = np.zeros((nmax,nmax))
+
     if pflag==1: # colour the arrows according to energy
         mpl.rc('image', cmap='rainbow')
         for i in range(nmax):
