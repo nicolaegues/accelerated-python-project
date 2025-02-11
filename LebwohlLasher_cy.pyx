@@ -313,33 +313,42 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
 
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, nmax, temp, pflag, nreps):
-    
-    # Create array to store the runtimes
-    rep_runtimes = np.zeros(nreps)
-
-    for rep in range(nreps): 
+def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
+  
           
-      """
-      Arguments:
-      program (string) = the name of the program;
-      nsteps (int) = number of Monte Carlo steps (MCS) to perform;
-        nmax (int) = side length of square lattice to simulate;
-      temp (float) = reduced temperature (range 0 to 2);
-      pflag (int) = a flag to control plotting.
-      Description:
-        This is the main function running the Lebwohl-Lasher simulation.
-      Returns:
-        NULL
-      """
+    """
+    Arguments:
+    program (string) = the name of the program;
+    nsteps (int) = number of Monte Carlo steps (MCS) to perform;
+      nmax (int) = side length of square lattice to simulate;
+    temp (float) = reduced temperature (range 0 to 2);
+    pflag (int) = a flag to control plotting.
+    Description:
+      This is the main function running the Lebwohl-Lasher simulation.
+    Returns:
+      NULL
+    """
+    
+    cdef: 
+      double[:] rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
+      int rep
+      double[:] energy, ratio, order
+      double[:, :] lattice
+      int it
+
+
+  
+    for rep in range(nreps): 
+
+
       # Create and initialise lattice
       lattice = initdat(nmax)
       # Plot initial frame of lattice
       plotdat(lattice,pflag,nmax)
       # Create arrays to store energy, acceptance ratio and order parameter
-      energy = np.zeros(nsteps+1,dtype=np.dtype)
-      ratio = np.zeros(nsteps+1,dtype=np.dtype)
-      order = np.zeros(nsteps+1,dtype=np.dtype)
+      energy = np.zeros(nsteps+1,dtype=np.float64)
+      ratio = np.zeros(nsteps+1,dtype=np.float64)
+      order = np.zeros(nsteps+1,dtype=np.float64)
       # Set initial values in arrays
       energy[0] = all_energy(lattice,nmax)
       ratio[0] = 0.5 # ideal value
