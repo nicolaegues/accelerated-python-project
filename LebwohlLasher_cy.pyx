@@ -123,7 +123,7 @@ def plotdep(energy, order, nsteps, temp):
     
 #=======================================================================
 
-def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
+def savedat(double[:, :] arr, int nsteps,double Ts,double runtime,double[:] ratio,double[:] energy,double[:] order,int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -141,6 +141,10 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
 	Returns:
 	  NULL
     """
+    cdef: 
+      str filename
+      int i
+
     # Create filename based on current date and time.
     current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
     filename = "LL-Output-{:s}.txt".format(current_datetime)
