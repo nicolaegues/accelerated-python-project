@@ -30,11 +30,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-from libc.math cimport cos, exp
+from libc.math cimport cos, exp, M_PI
 
 
 #=======================================================================
-def initdat(nmax):
+def initdat(int nmax):
     """
     Arguments:
       nmax (int) = size of lattice to create (nmax,nmax).
@@ -45,7 +45,7 @@ def initdat(nmax):
 	Returns:
 	  arr (float(nmax,nmax)) = array to hold lattice.
     """
-    arr = np.random.random_sample((nmax,nmax))*2.0*np.pi
+    cdef double[:, :] arr = np.random.random_sample((nmax,nmax))*2.0*M_PI
     return arr
 #=======================================================================
 def plotdat(arr,pflag,nmax):
