@@ -216,7 +216,7 @@ def all_energy(double[:, :] arr, int nmax):
             enall += one_energy(arr,i,j,nmax)
     return enall
 #=======================================================================
-def get_order(arr,nmax):
+def get_order(double[:, :] arr, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -228,21 +228,31 @@ def get_order(arr,nmax):
 	Returns:
 	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
     """
+
+    cdef: 
+     
+      double[:, :] delta = np.eye(3,3)
+      #
+      # Generate a 3D unit vector for each cell (i,j) and
+      # put it in a (3,i,j) array.
+      #
+      double[:, :, :] lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
+
+      int a, b, i, j
+      double[:] eigenvalues
+      double[:,:] eigenvectors
+
     Qab = np.zeros((3,3))
-    delta = np.eye(3,3)
-    #
-    # Generate a 3D unit vector for each cell (i,j) and
-    # put it in a (3,i,j) array.
-    #
-    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
+
     for a in range(3):
         for b in range(3):
             for i in range(nmax):
                 for j in range(nmax):
                     Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
+
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-    return eigenvalues.max()
+    return max(eigenvalues)
 #=======================================================================
 def MC_step( double[:, :] arr, double Ts, int nmax):
     """
