@@ -30,6 +30,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+from mpi4py import MPI
+
+
+
 #=======================================================================
 def initdat(nmax):
     """
@@ -278,6 +282,13 @@ def MC_step(arr,Ts,nmax):
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, nreps):
     
+
+    comm = MPI.COMM_WORLD
+    size = comm.size()
+    rank = comm.rank()
+    numworkers = size - 1
+
+    
     # Create array to store the runtimes
     rep_runtimes = np.zeros(nreps)
 
@@ -295,18 +306,44 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       Returns:
         NULL
       """
-      # Create and initialise lattice
-      lattice = initdat(nmax)
-      # Plot initial frame of lattice
-      plotdat(lattice,pflag,nmax)
-      # Create arrays to store energy, acceptance ratio and order parameter
-      energy = np.zeros(nsteps+1,dtype=np.dtype)
-      ratio = np.zeros(nsteps+1,dtype=np.dtype)
-      order = np.zeros(nsteps+1,dtype=np.dtype)
-      # Set initial values in arrays
-      energy[0] = all_energy(lattice,nmax)
-      ratio[0] = 0.5 # ideal value
-      order[0] = get_order(lattice,nmax)
+      if rank == 0: 
+        # Create and initialise lattice
+        lattice = initdat(nmax)
+        # Plot initial frame of lattice
+        plotdat(lattice,pflag,nmax)
+
+        # Create arrays to store energy, acceptance ratio and order parameter
+        energy = np.zeros(nsteps+1,dtype=np.float64)
+        ratio = np.zeros(nsteps+1,dtype=np.float64)
+        order = np.zeros(nsteps+1,dtype=np.float64)
+        # Set initial values in arrays
+        energy[0] = all_energy(lattice,nmax)
+        ratio[0] = 0.5 # ideal value
+        order[0] = get_order(lattice,nmax)
+
+
+        #Distribute work to workers. Will split the lattice into row-blocks. 
+        averow = nmax//numworkers
+        extra = nmax%numworkers
+
+        #distributes the extra rows
+        for i in range(1,numworkers+1):
+            rows = averow
+            if i <= extra:
+                rows+=1
+
+        #tell each worker who its neighbours are, since will be exchanging info. 
+        #Must keep periodic boundary conditions in mind
+        above = (i - 1)%numworkers
+        below = (i + 1)%numworkers
+
+        ()
+
+
+    #************************* workers code **********************************/
+
+      elif rank != 0: 
+          
 
       # Begin doing and timing some MC steps.
       initial = time.time()
