@@ -72,12 +72,9 @@ def plotdat(arr,pflag,nmax):
     v = np.sin(arr)
     x = np.arange(nmax)
     y = np.arange(nmax)
-    cols = np.zeros((nmax,nmax))
     if pflag==1: # colour the arrows according to energy
         mpl.rc('image', cmap='rainbow')
-        for i in range(nmax):
-            for j in range(nmax):
-                cols[i,j] = one_energy(arr,i,j,nmax)
+        cols = one_energy_vec(arr)
         norm = plt.Normalize(cols.min(), cols.max())
     elif pflag==2: # colour the arrows according to angle
         mpl.rc('image', cmap='hsv')
@@ -153,12 +150,10 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     FileOut.close()
 #=======================================================================
 
-def test_equal(): 
+def test_equal(curr_energy): 
     og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
 
-    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    filename = "LL-Output-{:s}.txt".format(current_datetime)
-    curr_energy = np.loadtxt(filename, usecols=(2,))
+    curr_energy = np.round(curr_energy.astype(float), 4)
 
     are_equal = np.array_equal(og_energy, curr_energy)
 
@@ -169,39 +164,6 @@ def test_equal():
 
 #=======================================================================
 
-def one_energy(arr,ix,iy,nmax):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-	  ix (int) = x lattice coordinate of cell;
-	  iy (int) = y lattice coordinate of cell;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function that computes the energy of a single cell of the
-      lattice taking into account periodic boundaries.  Working with
-      reduced energy (U/epsilon), equivalent to setting epsilon=1 in
-      equation (1) in the project notes.
-	Returns:
-	  en (float) = reduced energy of cell.
-    """
-    en = 0.0
-    ixp = (ix+1)%nmax # These are the coordinates
-    ixm = (ix-1)%nmax # of the neighbours
-    iyp = (iy+1)%nmax # with wraparound
-    iym = (iy-1)%nmax #
-#
-# Add together the 4 neighbour contributions
-# to the energy
-#
-    ang = arr[ix,iy]-arr[ixp,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ixm,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iyp]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iym]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    return en
 
 def one_energy_vec(arr): 
     
@@ -255,7 +217,7 @@ def get_order(arr,nmax):
     #
     lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
 
-    Qab = np.einsum('aij,bij->ab', lab, lab) * 3 - delta
+    Qab = np.einsum('aij,bij->ab', lab, lab)* 3 - nmax**2 *delta
     #follows general pattern of: np.einsum('input_indices->output_indices', tensor1, tensor2)
     #summing over i, j: which is why i and j appear in input but not output
 
@@ -264,6 +226,26 @@ def get_order(arr,nmax):
 
     return eigenvalues.max()
 #=======================================================================
+def mc_vec_diagonals(arr, aran, boltz_random, Ts, mask):
+
+      en0 = one_energy_vec(arr)[mask]
+
+      arr[mask] += aran[mask]
+
+      en1 = one_energy_vec(arr)[mask]
+
+      boltz = np.exp( -(en1 - en0) / Ts )
+      accept_mask = (en1 <= en0) | (boltz >= boltz_random[mask])
+
+      final_cells = arr[mask]
+      final_cells[ ~accept_mask] -= aran[mask][ ~accept_mask]
+
+      arr[mask] = final_cells
+
+      accept = np.sum(accept_mask)
+
+      return accept
+
 def MC_step(arr,Ts,nmax):
     """
     Arguments:
@@ -287,31 +269,25 @@ def MC_step(arr,Ts,nmax):
     # with temperature.
     scale=0.1+Ts
     accept = 0
-    xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
+
+    grid_indices = np.indices((nmax, nmax))
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
     boltz_random = np.random.uniform(0.0,1.0, size = (nmax, nmax))
     
-    for i in range(nmax):
-        for j in range(nmax):
-            ix = xran[i,j]
-            iy = yran[i,j]
-            ang = aran[i,j]
-            en0 = one_energy(arr,ix,iy,nmax)
-            arr[ix,iy] += ang
-            en1 = one_energy(arr,ix,iy,nmax)
-            if en1<=en0:
-                accept += 1
-            else:
-            # Now apply the Monte Carlo test - compare
-            # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-                boltz = np.exp( -(en1 - en0) / Ts )
 
-                if boltz >= boltz_random[i,j]:
-                    accept += 1
-                else:
-                    arr[ix,iy] -= ang
+    #mask for first ("white") set of diagonals of a checkerboard
+    diag_mask_1 = grid_indices.sum(axis = 0) % 2 == 0
+
+    #mask for second ("black") set of diagonals of checkerboard
+    diag_mask_2 = ~diag_mask_1
+
+
+    accept += mc_vec_diagonals(arr, aran, boltz_random, Ts, diag_mask_1)
+    accept += mc_vec_diagonals(arr, aran, boltz_random, Ts, diag_mask_2)
+
     return accept/(nmax*nmax)
+
+
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, nreps):
   
@@ -363,14 +339,14 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
-    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
-    #plotdep(energy, order, nsteps, temp)
-    test_equal()
+    plotdep(energy, order, nsteps, temp)
+    test_equal(energy)
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
-#
+# #
 if __name__ == '__main__':
     if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
