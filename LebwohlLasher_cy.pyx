@@ -30,9 +30,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+cimport numpy as cnp
 from libc.math cimport cos, exp, M_PI
-
-from libc.stdlib cimport rand, RAND_MAX
 
 #=======================================================================
 def initdat(nmax):
@@ -219,7 +218,7 @@ def one_energy( double[:, :] arr, int ix, int iy,int nmax):
 
     return en
 #=======================================================================
-def all_energy(double[:, :] arr, int nmax):
+def all_energy(cnp.ndarray[cnp.double_t, ndim = 2] arr_, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -230,16 +229,19 @@ def all_energy(double[:, :] arr, int nmax):
 	Returns:
 	  enall (float) = reduced energy of lattice.
     """
+
     cdef: 
+      double[:, :] arr = arr_
       double enall = 0.0
       int i, j
+
 
     for i in range(nmax):
         for j in range(nmax):
             enall += one_energy(arr,i,j,nmax)
     return enall
 #=======================================================================
-def get_order(double[:, :] arr, int nmax):
+def get_order(cnp.ndarray[cnp.double_t, ndim = 2] arr, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -254,18 +256,21 @@ def get_order(double[:, :] arr, int nmax):
 
     cdef: 
      
-      double[:, :] delta = np.eye(3,3)
-      #
-      # Generate a 3D unit vector for each cell (i,j) and
-      # put it in a (3,i,j) array.
-      #
-      double[:, :, :] lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
+      cnp.ndarray[cnp.double_t, ndim = 2] delta_ = np.eye(3,3)  
+
+      # Generate a 3D unit vector for each cell (i,j) and put it in a (3,i,j) array. 
+      cnp.ndarray[cnp.double_t, ndim = 3] lab_ = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)  
+      cnp.ndarray[cnp.double_t, ndim = 2] Qab = np.zeros((3,3)) #declaring this gave a major speedup btw
+
+      cnp.ndarray[cnp.double_t, ndim = 1] eigenvalues
+      cnp.ndarray[cnp.double_t, ndim = 2] eigenvectors
+
+      double[:, :] delta = delta_
+      double[:, :, :] lab = lab_
+      
 
       int a, b, i, j
-      double[:] eigenvalues
-      double[:,:] eigenvectors
 
-    Qab = np.zeros((3,3))
 
     for a in range(3):
         for b in range(3):
@@ -277,7 +282,7 @@ def get_order(double[:, :] arr, int nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return max(eigenvalues)
 #=======================================================================
-def MC_step( double[:, :] arr, double Ts, int nmax):
+def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -290,7 +295,8 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
       ratio for information.  This is the fraction of attempted changes
       that are successful.  Generally aim to keep this around 0.5 for
       efficient simulation.
-	Returns:
+	
+    Returns:
 	  accept/(nmax**2) (float) = acceptance ratio for current MCS.
     """
 
@@ -303,11 +309,19 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
         # of the distribution for the angle changes - increases
         # with temperature.
 
-        int[:, :]  xran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
-        int[:, :]  yran = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
 
-        double[:, :]  aran = np.random.normal(scale=scale, size=(nmax,nmax))
 
+
+        cnp.ndarray[int, ndim = 2] xran_ = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
+        cnp.ndarray[int, ndim = 2] yran_ = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
+        cnp.ndarray[cnp.double_t, ndim = 2] aran_ = np.random.normal(scale=scale, size=(nmax,nmax))
+
+        int[:, :] xran = xran_
+        int[:, :] yran = yran_
+        double[:, :] aran = aran_
+        double[:, :] arr = arr_
+
+  
         int ix, iy
         double ang, en0, en1, boltz
 
@@ -329,7 +343,7 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
             # exp( -(E_new - E_old) / T* ) >= rand(0,1)
                 boltz = exp( -(en1 - en0) / Ts )
 
-                random_value = rand() / RAND_MAX
+                random_value = np.random.uniform(0.0,1.0)
                 if boltz >= random_value:
                     accept += 1
                 else:
@@ -399,6 +413,6 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     # Plot final frame of lattice and generate output file
     # savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
-    #plotdep(energy, order, nsteps, temp)
-    #test_equal(energy)
+    plotdep(energy, order, nsteps, temp)
+    test_equal(energy)
 #=======================================================================
