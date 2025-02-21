@@ -333,8 +333,7 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
             # exp( -(E_new - E_old) / T* ) >= rand(0,1)
                 boltz = exp( -(en1 - en0) / Ts )
 
-                #random_value = rand() / RAND_MAX
-                random_value = np.random.uniform(0.0,1.0)
+                random_value = rand() / RAND_MAX
                 if boltz >= random_value:
                     accept += 1
                 else:
