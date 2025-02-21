@@ -35,7 +35,7 @@ from libc.math cimport cos, exp, M_PI
 from libc.stdlib cimport rand, RAND_MAX
 
 #=======================================================================
-def initdat(int nmax):
+def initdat(nmax):
     """
     Arguments:
       nmax (int) = size of lattice to create (nmax,nmax).
@@ -46,10 +46,10 @@ def initdat(int nmax):
 	Returns:
 	  arr (float(nmax,nmax)) = array to hold lattice.
     """
-    cdef double[:, :] arr = np.random.random_sample((nmax,nmax))*2.0*M_PI
+    arr = np.random.random_sample((nmax,nmax))*2.0*M_PI
     return arr
 #=======================================================================
-def plotdat(double[:, :] arr, int pflag,int nmax):
+def plotdat(arr, pflag, nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -124,7 +124,7 @@ def plotdep(energy, order, nsteps, temp):
     
 #=======================================================================
 
-def savedat(double[:, :] arr, int nsteps,double Ts,double runtime,double[:] ratio,double[:] energy,double[:] order,int nmax):
+def savedat(arr, nsteps, Ts, runtime, ratio, energy, order, nmax):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -142,9 +142,6 @@ def savedat(double[:, :] arr, int nsteps,double Ts,double runtime,double[:] rati
 	Returns:
 	  NULL
     """
-    cdef: 
-      str filename
-      int i
 
     # Create filename based on current date and time.
     current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
@@ -166,11 +163,10 @@ def savedat(double[:, :] arr, int nsteps,double Ts,double runtime,double[:] rati
     FileOut.close()
 #=======================================================================
 
-def test_equal(double[:] energy): 
-    cdef: 
-      double[:] og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
+def test_equal(energy): 
 
-      double[:] curr_energy = np.round(energy, 4)
+    og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
+    curr_energy = np.round(energy.astype(float), 4)
 
     are_equal = np.array_equal(og_energy, curr_energy)
 
@@ -341,7 +337,7 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
 
     return accept/(nmax*nmax)
 #=======================================================================
-def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
+def main(program, nsteps, nmax, temp, pflag, nreps):
 
     """
     Arguments:
@@ -359,15 +355,15 @@ def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
     np.random.seed(seed=42)
 
     
-    cdef: 
-      double[:] rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
-      int rep
-      double[:] energy, ratio, order
-      double[:, :] lattice
-      int it
+    #cdef: 
+      #double[:] rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
+      #int rep
+      #double[:] energy, ratio, order
+      #double[:, :] lattice
+      #int it
 
 
-
+    rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
   
     for rep in range(nreps): 
 
@@ -403,6 +399,6 @@ def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
     # Plot final frame of lattice and generate output file
     # savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
-    #plotdep(np.array(energy), np.array(order), nsteps, temp)
+    #plotdep(energy, order, nsteps, temp)
     #test_equal(energy)
 #=======================================================================
