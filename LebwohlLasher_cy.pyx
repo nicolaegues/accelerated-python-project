@@ -32,6 +32,7 @@ import matplotlib as mpl
 
 from libc.math cimport cos, exp, M_PI
 
+from libc.stdlib cimport rand, RAND_MAX
 
 #=======================================================================
 def initdat(int nmax):
@@ -165,19 +166,18 @@ def savedat(double[:, :] arr, int nsteps,double Ts,double runtime,double[:] rati
     FileOut.close()
 #=======================================================================
 
-def test_equal(): 
-    og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
+def test_equal(double[:] energy): 
+    cdef: 
+      double[:] og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
 
-    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    filename = "LL-Output-{:s}.txt".format(current_datetime)
-    curr_energy = np.loadtxt(filename, usecols=(2,))
+      double[:] curr_energy = np.round(energy, 4)
 
     are_equal = np.array_equal(og_energy, curr_energy)
 
     if are_equal: 
         print("The new energy values are the same as the original energy values - all good!")
     else: 
-        print("The energy values differ from the original - something went wrong. ")
+        print("The energy values differ from the original - something may have gone wrong. ")
 
 #=======================================================================
 
@@ -297,12 +297,11 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
 	Returns:
 	  accept/(nmax**2) (float) = acceptance ratio for current MCS.
     """
+
     cdef: 
         double scale=0.1+Ts
         int accept = 0
 
-
-        #
         # Pre-compute some random numbers.  This is faster than
         # using lots of individual calls.  "scale" sets the width
         # of the distribution for the angle changes - increases
@@ -316,6 +315,7 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
         int ix, iy
         double ang, en0, en1, boltz
 
+        double random_value
 
 
     for i in range(nmax):
@@ -333,23 +333,17 @@ def MC_step( double[:, :] arr, double Ts, int nmax):
             # exp( -(E_new - E_old) / T* ) >= rand(0,1)
                 boltz = exp( -(en1 - en0) / Ts )
 
-                if boltz >= np.random.uniform(0.0,1.0):
+                #random_value = rand() / RAND_MAX
+                random_value = np.random.uniform(0.0,1.0)
+                if boltz >= random_value:
                     accept += 1
                 else:
                     arr[ix,iy] -= ang
 
     return accept/(nmax*nmax)
 #=======================================================================
-<<<<<<< HEAD:LebwohlLasher_cy.pyx
 def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
-  
-    np.random.seed(seed=42)
-    
-    # Create array to store the runtimes
-    rep_runtimes = np.zeros(nreps)
 
-    for rep in range(nreps): 
-          
     """
     Arguments:
     program (string) = the name of the program;
@@ -362,6 +356,9 @@ def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
     Returns:
       NULL
     """
+  
+    np.random.seed(seed=42)
+
     
     cdef: 
       double[:] rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
@@ -369,6 +366,7 @@ def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
       double[:] energy, ratio, order
       double[:, :] lattice
       int it
+
 
 
   
@@ -404,13 +402,8 @@ def main(str program, int nsteps, int nmax, double temp, int pflag, int nreps):
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
-    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    # savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
-    #plotdep(energy, order, nsteps, temp)
-    test_equal()
-#=======================================================================
-# Main part of program, getting command line arguments and calling
-# main simulation function.
-#
-
+    #plotdep(np.array(energy), np.array(order), nsteps, temp)
+    #test_equal(energy)
 #=======================================================================
