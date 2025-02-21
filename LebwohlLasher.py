@@ -151,12 +151,10 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
     FileOut.close()
 #=======================================================================
 
-def test_equal(): 
+def test_equal(curr_energy): 
     og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
 
-    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    filename = "LL-Output-{:s}.txt".format(current_datetime)
-    curr_energy = np.loadtxt(filename, usecols=(2,))
+    curr_energy = np.round(curr_energy.astype(float), 4)
 
     are_equal = np.array_equal(og_energy, curr_energy)
 
