@@ -150,6 +150,23 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
+
+def test_equal(): 
+    og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
+
+    current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
+    filename = "LL-Output-{:s}.txt".format(current_datetime)
+    curr_energy = np.loadtxt(filename, usecols=(2,))
+
+    are_equal = np.array_equal(og_energy, curr_energy)
+
+    if are_equal: 
+        print("The new energy values are the same as the original energy values - all good!")
+    else: 
+        print("The energy values differ from the original - something went wrong. ")
+
+#=======================================================================
+
 def one_energy(arr,ix,iy,nmax):
     """
     Arguments:
@@ -329,6 +346,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
+    test_equal()
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
