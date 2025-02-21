@@ -32,6 +32,7 @@ import matplotlib as mpl
 
 cimport numpy as cnp
 from libc.math cimport cos, exp, M_PI
+from libc.stdlib cimport rand, RAND_MAX
 
 #=======================================================================
 def initdat(nmax):
@@ -343,7 +344,8 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax):
             # exp( -(E_new - E_old) / T* ) >= rand(0,1)
                 boltz = exp( -(en1 - en0) / Ts )
 
-                random_value = np.random.uniform(0.0,1.0)
+                #random_value = np.random.uniform(0.0,1.0)
+                random_value = rand()/RAND_MAX
                 if boltz >= random_value:
                     accept += 1
                 else:
