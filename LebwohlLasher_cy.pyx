@@ -23,9 +23,6 @@ domains alternate between old data and new data.
 SH 16-Oct-23
 """
 
-
-#This the parallel version
-
 import sys
 import time
 import datetime
@@ -36,6 +33,10 @@ import matplotlib as mpl
 cimport numpy as cnp
 from libc.math cimport cos, exp, M_PI
 from libc.stdlib cimport rand, RAND_MAX
+
+cimport cython
+from cython.parallel cimport parallel, prange
+cimport openmp
 
 #=======================================================================
 def initdat(nmax):
@@ -180,7 +181,8 @@ def test_equal(energy):
 
 #=======================================================================
 
-def one_energy( double[:, :] arr, int ix, int iy,int nmax):
+@cython.boundscheck(False)
+cdef double one_energy( double[:, :] arr, int ix, int iy,int nmax) nogil:
 
     """
       Arguments:
@@ -198,19 +200,17 @@ def one_energy( double[:, :] arr, int ix, int iy,int nmax):
       """
 
     cdef: 
-    
+  
         double en = 0.0
+        double ang
         int ixp = (ix+1)%nmax 
         int ixm = (ix-1)%nmax 
         int iyp = (iy+1)%nmax 
         int iym = (iy-1)%nmax 
-        double ang
+  
 
-  #
-  # Add together the 4 neighbour contributions
-  # to the energy
-  #
-
+    # Add together the 4 neighbour contributions
+    # to the energy
     ang = arr[ix,iy]-arr[ixp,iy]
     en += 0.5*(1.0 - 3.0*cos(ang)*cos(ang))
     ang = arr[ix,iy]-arr[ixm,iy]
@@ -222,7 +222,8 @@ def one_energy( double[:, :] arr, int ix, int iy,int nmax):
 
     return en
 #=======================================================================
-def all_energy(cnp.ndarray[cnp.double_t, ndim = 2] arr_, int nmax):
+@cython.boundscheck(False)
+def all_energy(cnp.ndarray[cnp.double_t, ndim = 2] arr_, int nmax, int threads):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -240,11 +241,13 @@ def all_energy(cnp.ndarray[cnp.double_t, ndim = 2] arr_, int nmax):
       int i, j
 
 
+    #for i in prange(nmax, nogil = True, num_threads = threads):
     for i in range(nmax):
         for j in range(nmax):
             enall += one_energy(arr,i,j,nmax)
     return enall
 #=======================================================================
+@cython.boundscheck(False)
 def get_order(cnp.ndarray[cnp.double_t, ndim = 2] arr, int nmax):
     """
     Arguments:
@@ -286,7 +289,8 @@ def get_order(cnp.ndarray[cnp.double_t, ndim = 2] arr, int nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return max(eigenvalues)
 #=======================================================================
-def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax):
+@cython.boundscheck(False)
+def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int threads):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -313,9 +317,6 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax):
         # of the distribution for the angle changes - increases
         # with temperature.
 
-
-
-
         cnp.ndarray[int, ndim = 2] xran_ = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
         cnp.ndarray[int, ndim = 2] yran_ = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
         cnp.ndarray[cnp.double_t, ndim = 2] aran_ = np.random.normal(scale=scale, size=(nmax,nmax))
@@ -327,36 +328,43 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax):
 
   
         int ix, iy
+        int i, j
         double ang, en0, en1, boltz
 
         double random_value
 
+        int thread_nr
 
-    for i in range(nmax):
-        for j in range(nmax):
-            ix = xran[i,j]
-            iy = yran[i,j]
-            ang = aran[i,j]
-            en0 = one_energy(arr,ix,iy,nmax)
-            arr[ix,iy] += ang
-            en1 = one_energy(arr,ix,iy,nmax)
-            if en1<=en0:
-                accept += 1
-            else:
-            # Now apply the Monte Carlo test - compare
-            # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-                boltz = exp( -(en1 - en0) / Ts )
 
-                #random_value = np.random.uniform(0.0,1.0)
-                random_value = rand()/RAND_MAX
-                if boltz >= random_value:
-                    accept += 1
-                else:
-                    arr[ix,iy] -= ang
+    with nogil, parallel(num_threads=threads):
+
+      for i in prange(nmax):
+          for j in range(nmax):
+
+              ix = xran[i,j]
+              iy = yran[i,j]
+              ang = aran[i,j]
+
+              en0 = one_energy(arr,ix,iy,nmax)
+              arr[ix,iy] += ang
+              en1 = one_energy(arr,ix,iy,nmax)
+
+              if en1<=en0:
+                  accept += 1
+              else:
+              # Now apply the Monte Carlo test - compare
+              # exp( -(E_new - E_old) / T* ) >= rand(0,1)
+                  boltz = exp( -(en1 - en0) / Ts )
+
+                  random_value = rand()/RAND_MAX
+                  if boltz >= random_value:
+                      accept += 1
+                  else:
+                      arr[ix,iy] -= ang
 
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, nmax, temp, pflag, nreps):
+def main(program, nsteps, nmax, temp, pflag, threads):
 
     """
     Arguments:
@@ -373,13 +381,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
   
     np.random.seed(seed=42)
 
-    
-    #cdef: 
-      #double[:] rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
-      #int rep
-      #double[:] energy, ratio, order
-      #double[:, :] lattice
-      #int it
+    nreps = 1
 
 
     rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
@@ -389,32 +391,35 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
       # Create and initialise lattice
       lattice = initdat(nmax)
+
       # Plot initial frame of lattice
       plotdat(lattice,pflag,nmax)
+
       # Create arrays to store energy, acceptance ratio and order parameter
       energy = np.zeros(nsteps+1,dtype=np.float64)
       ratio = np.zeros(nsteps+1,dtype=np.float64)
       order = np.zeros(nsteps+1,dtype=np.float64)
+
       # Set initial values in arrays
-      energy[0] = all_energy(lattice,nmax)
+      energy[0] = all_energy(lattice,nmax, threads)
       ratio[0] = 0.5 # ideal value
       order[0] = get_order(lattice,nmax)
 
       # Begin doing and timing some MC steps.
-      initial = time.time()
+      initial = openmp.omp_get_wtime() #or time.time()?
       for it in range(1,nsteps+1):
-          ratio[it] = MC_step(lattice,temp,nmax)
-          energy[it] = all_energy(lattice,nmax)
+          ratio[it] = MC_step(lattice,temp,nmax, threads)
+          energy[it] = all_energy(lattice,nmax, threads)
           order[it] = get_order(lattice,nmax)
 
-      final = time.time()
+      final = openmp.omp_get_wtime() #or time.time()?
       runtime = final-initial
 
       rep_runtimes[rep] = runtime
 
     
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    print("{}: Size: {:d}, Steps: {:d}, Threads: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, threads, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
     # savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
