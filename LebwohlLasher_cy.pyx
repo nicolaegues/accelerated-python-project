@@ -123,7 +123,7 @@ def plotdep(energy, order, nsteps, temp):
         ax.set_xlabel("MCS")
     
     current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    plt.savefig(f"vs_MCS_plot_{current_datetime}")
+    #plt.savefig(f"vs_MCS_plot_{current_datetime}")
     plt.show()
     
 #=======================================================================
@@ -182,6 +182,7 @@ def test_equal(energy):
 #=======================================================================
 
 @cython.boundscheck(False)
+@cython.wraparound(False)
 cdef double one_energy( double[:, :] arr, int ix, int iy,int nmax) nogil:
 
     """
@@ -290,6 +291,7 @@ def get_order(cnp.ndarray[cnp.double_t, ndim = 2] arr, int nmax):
     return max(eigenvalues)
 #=======================================================================
 @cython.boundscheck(False)
+@cython.wraparound(False)
 def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int threads):
     """
     Arguments:
@@ -331,10 +333,11 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
 
     with nogil, parallel(num_threads=threads):
 
+  
       for i in prange(nmax):
           for j in range(nmax):
 
-              #if (i + j) % 2 == 0:
+              if (i + j) % 2 == 0:
 
                 ang = aran[i,j]
 
@@ -354,30 +357,31 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
                     else:
                         arr[i,j] -= ang
 
-    """
-    for i in prange(nmax, nogil = True, num_threads = threads):
-      for j in range(nmax):
+    
+    with nogil, parallel(num_threads=threads):
+      for i in prange(nmax):
+        for j in range(nmax):
 
-          #if (i + j) % 2 != 0:
+            if (i + j) % 2 != 0:
 
-            ang = aran[i,j]
+              ang = aran[i,j]
 
-            en0 = one_energy(arr,i,j,nmax)
-            arr[i, j] += ang
-            en1 = one_energy(arr,i,j,nmax)
+              en0 = one_energy(arr,i,j,nmax)
+              arr[i, j] += ang
+              en1 = one_energy(arr,i,j,nmax)
 
-            if en1<=en0:
-                accept += 1
-            else:
-                # Now apply the Monte Carlo test 
-                boltz = exp( -(en1 - en0) / Ts )
+              if en1<=en0:
+                  accept += 1
+              else:
+                  # Now apply the Monte Carlo test 
+                  boltz = exp( -(en1 - en0) / Ts )
 
-                random_value = rand()/RAND_MAX
-                if boltz >= random_value:
-                    accept += 1
-                else:
-                    arr[i,j] -= ang
-    """        
+                  random_value = rand()/RAND_MAX
+                  if boltz >= random_value:
+                      accept += 1
+                  else:
+                      arr[i,j] -= ang
+            
 
     return accept/(nmax*nmax)
 #=======================================================================
