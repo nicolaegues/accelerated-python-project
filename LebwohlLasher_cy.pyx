@@ -23,6 +23,9 @@ domains alternate between old data and new data.
 SH 16-Oct-23
 """
 
+
+#This the parallel version
+
 import sys
 import time
 import datetime
