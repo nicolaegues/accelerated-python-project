@@ -317,17 +317,11 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
         # of the distribution for the angle changes - increases
         # with temperature.
 
-        cnp.ndarray[int, ndim = 2] xran_ = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
-        cnp.ndarray[int, ndim = 2] yran_ = np.random.randint(0,high=nmax, size=(nmax,nmax), dtype=np.int32)
         cnp.ndarray[cnp.double_t, ndim = 2] aran_ = np.random.normal(scale=scale, size=(nmax,nmax))
 
-        int[:, :] xran = xran_
-        int[:, :] yran = yran_
         double[:, :] aran = aran_
         double[:, :] arr = arr_
-
   
-        int ix, iy
         int i, j
         double ang, en0, en1, boltz
 
@@ -335,32 +329,55 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
 
         int thread_nr
 
-
     with nogil, parallel(num_threads=threads):
 
       for i in prange(nmax):
           for j in range(nmax):
 
-              ix = xran[i,j]
-              iy = yran[i,j]
-              ang = aran[i,j]
+              #if (i + j) % 2 == 0:
 
-              en0 = one_energy(arr,ix,iy,nmax)
-              arr[ix,iy] += ang
-              en1 = one_energy(arr,ix,iy,nmax)
+                ang = aran[i,j]
 
-              if en1<=en0:
-                  accept += 1
-              else:
-              # Now apply the Monte Carlo test - compare
-              # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-                  boltz = exp( -(en1 - en0) / Ts )
+                en0 = one_energy(arr,i,j,nmax)
+                arr[i, j] += ang
+                en1 = one_energy(arr,i,j,nmax)
 
-                  random_value = rand()/RAND_MAX
-                  if boltz >= random_value:
-                      accept += 1
-                  else:
-                      arr[ix,iy] -= ang
+                if en1<=en0:
+                    accept += 1
+                else:
+                    # Now apply the Monte Carlo test 
+                    boltz = exp( -(en1 - en0) / Ts )
+
+                    random_value = rand()/RAND_MAX
+                    if boltz >= random_value:
+                        accept += 1
+                    else:
+                        arr[i,j] -= ang
+
+    """
+    for i in prange(nmax, nogil = True, num_threads = threads):
+      for j in range(nmax):
+
+          #if (i + j) % 2 != 0:
+
+            ang = aran[i,j]
+
+            en0 = one_energy(arr,i,j,nmax)
+            arr[i, j] += ang
+            en1 = one_energy(arr,i,j,nmax)
+
+            if en1<=en0:
+                accept += 1
+            else:
+                # Now apply the Monte Carlo test 
+                boltz = exp( -(en1 - en0) / Ts )
+
+                random_value = rand()/RAND_MAX
+                if boltz >= random_value:
+                    accept += 1
+                else:
+                    arr[i,j] -= ang
+    """        
 
     return accept/(nmax*nmax)
 #=======================================================================
