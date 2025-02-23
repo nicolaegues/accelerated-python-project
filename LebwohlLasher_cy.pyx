@@ -319,8 +319,11 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
         # with temperature.
 
         cnp.ndarray[cnp.double_t, ndim = 2] aran_ = np.random.normal(scale=scale, size=(nmax,nmax))
+        #cnp.ndarray[cnp.double_t, ndim = 2] boltz_random_ = np.random.uniform(0, 1.0, size=(nmax,nmax))
+
 
         double[:, :] aran = aran_
+        #double[:, :] boltz_random = boltz_random_
         double[:, :] arr = arr_
   
         int i, j
@@ -331,7 +334,7 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
 
 
     for p in range(2):
-      for i in prange(0, nmax, 2, nogil = True, num_threads = threads):
+      for i in prange(nmax, nogil = True, num_threads = threads):
           for j in range(nmax):
 
             if (i+j)%2 == p:
@@ -349,13 +352,14 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
                   boltz = exp( -(en1 - en0) / Ts )
 
                   random_value = rand()/RAND_MAX
+                  #random_value = boltz_random[i, j]
                   if boltz >= random_value:
                       accept += 1
                   else:
                       arr[i,j] -= ang
-        
+          
               
-      return accept/(nmax*nmax)
+    return accept/(nmax*nmax)
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, threads):
 
