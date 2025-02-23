@@ -151,7 +151,7 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
-@jit(nopython = True)
+@jit(nopython = True, cache = True)
 def one_energy(arr,ix,iy,nmax):
     """
     Arguments:
@@ -186,7 +186,7 @@ def one_energy(arr,ix,iy,nmax):
     en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
     return en
 #=======================================================================
-@jit(nopython = True)
+@jit(nopython = True, cache = True)
 def all_energy(arr,nmax):
     """
     Arguments:
@@ -204,7 +204,7 @@ def all_energy(arr,nmax):
             enall += one_energy(arr,i,j,nmax)
     return enall
 #=======================================================================
-@jit(nopython = True)
+@jit(nopython = True, cache = True)
 def get_order(arr,nmax):
     """
     Arguments:
@@ -233,7 +233,7 @@ def get_order(arr,nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max()
 #=======================================================================
-@jit(nopython = True)
+@jit(nopython = True, cache= True)
 def MC_step(arr,Ts,nmax):
     """
     Arguments:
