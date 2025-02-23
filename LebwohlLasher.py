@@ -29,7 +29,8 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from numba import jit, prange, set_num_threads
+import numba
+from numba import jit
 
 #=======================================================================
 def initdat(nmax):
@@ -233,7 +234,7 @@ def get_order(arr,nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max()
 #=======================================================================
-@jit(nopython = True, parallel = True)
+@jit(nopython = True, parallel = True, cache = True)
 def MC_step(arr,Ts,nmax):
     """
     Arguments:
@@ -262,7 +263,7 @@ def MC_step(arr,Ts,nmax):
     aran = np.random.normal(0, scale=scale, size=(nmax,nmax))
 
     for p in range(2):
-      for i in prange(nmax):
+      for i in numba.prange(nmax):
           for j in range(nmax):
               
               if (i +j) % 2 == p:
@@ -287,8 +288,11 @@ def MC_step(arr,Ts,nmax):
     return accept/(nmax*nmax)
 #=======================================================================
 
-def main(program, nsteps, nmax, temp, pflag, nreps):
+def main(program, nsteps, nmax, temp, pflag, threads):
     
+
+    numba.set_num_threads(threads)
+    nreps = 1
     # Create array to store the runtimes
     rep_runtimes = np.zeros(nreps)
 
@@ -333,7 +337,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
     
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    print("{}: Size: {:d}, Steps: {:d}, Threads: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, threads, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
     #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
@@ -349,8 +353,8 @@ if __name__ == '__main__':
         SIZE = int(sys.argv[2])
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
-        NREPS =  int(sys.argv[5])
-        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
+        THREADS =  int(sys.argv[5])
+        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, THREADS)
     else:
-        print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
+        print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> <THREADS>".format(sys.argv[0]))
 #=======================================================================
