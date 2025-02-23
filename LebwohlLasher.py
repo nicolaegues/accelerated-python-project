@@ -29,7 +29,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from numba import jit
+from numba import jit, prange, set_num_threads
 
 #=======================================================================
 def initdat(nmax):
@@ -233,7 +233,7 @@ def get_order(arr,nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max()
 #=======================================================================
-@jit(nopython = True)
+@jit(nopython = True, parallel = True)
 def MC_step(arr,Ts,nmax):
     """
     Arguments:
@@ -260,25 +260,30 @@ def MC_step(arr,Ts,nmax):
     xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     aran = np.random.normal(0, scale=scale, size=(nmax,nmax))
-    for i in range(nmax):
-        for j in range(nmax):
-            ix = xran[i,j]
-            iy = yran[i,j]
-            ang = aran[i,j]
-            en0 = one_energy(arr,ix,iy,nmax)
-            arr[ix,iy] += ang
-            en1 = one_energy(arr,ix,iy,nmax)
-            if en1<=en0:
-                accept += 1
-            else:
-            # Now apply the Monte Carlo test - compare
-            # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-                boltz = np.exp( -(en1 - en0) / Ts )
 
-                if boltz >= np.random.uniform(0.0,1.0):
+    for p in range(2):
+      for i in prange(nmax):
+          for j in range(nmax):
+              
+              if (i +j) % 2 == p:
+
+                ix = xran[i,j]
+                iy = yran[i,j]
+                ang = aran[i,j]
+                en0 = one_energy(arr,ix,iy,nmax)
+                arr[ix,iy] += ang
+                en1 = one_energy(arr,ix,iy,nmax)
+                if en1<=en0:
                     accept += 1
                 else:
-                    arr[ix,iy] -= ang
+                # Now apply the Monte Carlo test - compare
+                # exp( -(E_new - E_old) / T* ) >= rand(0,1)
+                    boltz = np.exp( -(en1 - en0) / Ts )
+
+                    if boltz >= np.random.uniform(0.0,1.0):
+                        accept += 1
+                    else:
+                        arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
 
