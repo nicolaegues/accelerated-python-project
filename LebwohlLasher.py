@@ -154,6 +154,21 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
+
+def test_equal(curr_energy): 
+    og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
+
+    curr_energy = np.round(curr_energy.astype(float), 4)
+
+    are_equal = np.array_equal(og_energy, curr_energy)
+
+    if are_equal: 
+        print("The new energy values are the same as the original energy values - all good!")
+    else: 
+        print("The energy values differ from the original - something went wrong. ")
+
+#=======================================================================
+
 def one_energy(arr,ix,iy,nmax):
     """
     Arguments:
@@ -281,6 +296,8 @@ def MC_step(arr,Ts,nmax):
     return accept/(nmax*nmax)
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, nreps):
+  
+    np.random.seed(seed=42)
     
 
     comm = MPI.COMM_WORLD
@@ -361,9 +378,10 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
-    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
+    test_equal()
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
