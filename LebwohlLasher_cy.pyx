@@ -242,14 +242,13 @@ def all_energy(cnp.ndarray[cnp.double_t, ndim = 2] arr_, int nmax, int threads):
       int i, j
 
 
-    #for i in prange(nmax, nogil = True, num_threads = threads):
-    for i in range(nmax):
+    for i in prange(nmax, nogil = True, num_threads = threads):
         for j in range(nmax):
             enall += one_energy(arr,i,j,nmax)
     return enall
 #=======================================================================
 @cython.boundscheck(False)
-def get_order(cnp.ndarray[cnp.double_t, ndim = 2] arr, int nmax):
+def get_order(cnp.ndarray[cnp.double_t, ndim = 2] arr, int nmax, int threads):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -280,7 +279,7 @@ def get_order(cnp.ndarray[cnp.double_t, ndim = 2] arr, int nmax):
       int a, b, i, j
 
 
-    for a in range(3):
+    for a in prange(3, nogil = True, num_threads = threads):
         for b in range(3):
             for i in range(nmax):
                 for j in range(nmax):
@@ -331,50 +330,32 @@ def MC_step( cnp.ndarray[cnp.double_t, ndim = 2] arr_, double Ts, int nmax, int 
 
 
 
-    for i in prange(0, nmax, 2, nogil = True, num_threads = threads):
+    for p in range(2):
+      for i in prange(0, nmax, 2, nogil = True, num_threads = threads):
+          for j in range(nmax):
 
-        for j in range(nmax):
+            if (i+j)%2 == p:
 
-          ang = aran[i,j]
+              ang = aran[i,j]
 
-          en0 = one_energy(arr,i,j,nmax)
-          arr[i, j] += ang
-          en1 = one_energy(arr,i,j,nmax)
+              en0 = one_energy(arr,i,j,nmax)
+              arr[i, j] += ang
+              en1 = one_energy(arr,i,j,nmax)
 
-          if en1<=en0:
-              accept += 1
-          else:
-              # Now apply the Monte Carlo test 
-              boltz = exp( -(en1 - en0) / Ts )
-
-              random_value = rand()/RAND_MAX
-              if boltz >= random_value:
+              if en1<=en0:
                   accept += 1
               else:
-                  arr[i,j] -= ang
-      
+                  # Now apply the Monte Carlo test 
+                  boltz = exp( -(en1 - en0) / Ts )
 
-    for i in prange(1, nmax, 2, nogil = True, num_threads = threads):
-      for j in range(nmax):
-          ang = aran[i,j]
-
-          en0 = one_energy(arr,i,j,nmax)
-          arr[i, j] += ang
-          en1 = one_energy(arr,i,j,nmax)
-
-          if en1<=en0:
-              accept += 1
-          else:
-              # Now apply the Monte Carlo test 
-              boltz = exp( -(en1 - en0) / Ts )
-
-              random_value = rand()/RAND_MAX
-              if boltz >= random_value:
-                  accept += 1
-              else:
-                  arr[i,j] -= ang
-            
-    return accept/(nmax*nmax)
+                  random_value = rand()/RAND_MAX
+                  if boltz >= random_value:
+                      accept += 1
+                  else:
+                      arr[i,j] -= ang
+        
+              
+      return accept/(nmax*nmax)
 #=======================================================================
 def main(program, nsteps, nmax, temp, pflag, threads):
 
@@ -415,14 +396,14 @@ def main(program, nsteps, nmax, temp, pflag, threads):
       # Set initial values in arrays
       energy[0] = all_energy(lattice,nmax, threads)
       ratio[0] = 0.5 # ideal value
-      order[0] = get_order(lattice,nmax)
+      order[0] = get_order(lattice,nmax, threads)
 
       # Begin doing and timing some MC steps.
       initial = openmp.omp_get_wtime() #or time.time()?
       for it in range(1,nsteps+1):
           ratio[it] = MC_step(lattice,temp,nmax, threads)
           energy[it] = all_energy(lattice,nmax, threads)
-          order[it] = get_order(lattice,nmax)
+          order[it] = get_order(lattice,nmax, threads)
 
       final = openmp.omp_get_wtime() #or time.time()?
       runtime = final-initial
