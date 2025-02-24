@@ -116,7 +116,7 @@ def plotdep(energy, order, nsteps, temp):
         ax.set_xlabel("MCS")
     
     current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    plt.savefig(f"vs_MCS_plot_{current_datetime}")
+    #plt.savefig(f"vs_MCS_plot_{current_datetime}")
     plt.show()
     
 #=======================================================================
@@ -347,8 +347,8 @@ def MC_step(arr,Ts,nmax, offset, rows):
 MAXWORKER  = 17          # maximum number of worker tasks
 MINWORKER  = 1          # minimum number of worker tasks
 BEGIN      = 1          # message tag
-LTAG       = 2          # message tag
-RTAG       = 3          # message tag
+ABOVE       = 2          # message tag
+BELOW       = 3          # message tag
 DONE       = 4          # message tag
 MASTER     = 0          # taskid of first process
 
@@ -433,9 +433,13 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
             offset += rows
 
         #wait for results from all worker tasks
-        all_worker_energies= np.zeros((numworkers, nsteps),dtype=np.float64)
-        all_worker_ratios = np.zeros((numworkers, nsteps),dtype=np.float64)
-        all_worker_Qabs = np.zeros((numworkers, nsteps, 3, 3),dtype=np.float64)
+        master_local_energy= np.zeros( nsteps,dtype=np.float64)
+        master_local_Qab = np.zeros(( nsteps, 3, 3),dtype=np.float64)
+        master_local_ratio = np.zeros( nsteps,dtype=np.float64)
+
+        master_energy= np.zeros( nsteps,dtype=np.float64)
+        master_Qab = np.zeros(( nsteps, 3, 3),dtype=np.float64)
+        master_ratio = np.zeros( nsteps,dtype=np.float64)
 
         for i in range(1,numworkers+1):
             offset = comm.recv(source=i, tag=DONE)
@@ -443,26 +447,16 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
             chunksize = nsteps
 
-            worker_energy= np.zeros( nsteps,dtype=np.float64)
-            worker_ratio = np.zeros(nsteps,dtype=np.float64)
-            worker_Qabs = np.zeros((nsteps, 3, 3),dtype=np.float64)
-
-            comm.Recv([worker_energy, MPI.DOUBLE], source = i, tag = DONE)
-            comm.Recv([worker_ratio, MPI.DOUBLE], source = i, tag = DONE)
-            comm.Recv([worker_Qabs, MPI.DOUBLE], source = i, tag = DONE)
-
-            all_worker_energies[i-1] = worker_energy
-            all_worker_ratios[i-1] = worker_ratio
-            all_worker_Qabs[i-1] = worker_Qabs
+           
+        comm.Reduce(master_local_energy, master_energy, op=MPI.SUM, root=MASTER)
+        comm.Reduce(master_local_Qab, master_Qab, op=MPI.SUM, root=MASTER)
+        comm.Reduce(master_local_ratio, master_ratio, op=MPI.SUM, root=MASTER)
 
 
-
-        energy[1:] = all_worker_energies.sum(axis = 0)
-        ratio[1:] = all_worker_ratios.mean(axis = 0 )
+        energy[1:] = master_energy
+        ratio[1:] = master_ratio/numworkers #to get the mean ratios
         
-        sum_Qabs = all_worker_Qabs.sum(axis = 0)
-        final_Qabs = sum_Qabs/(2*nmax*nmax)
-        
+        final_Qabs = master_Qab/(2*nmax*nmax)
         eigenvalues = np.linalg.eigvalsh(final_Qabs)
           
         order[1:] =  eigenvalues[:, -1]  #all the max eigenvals
@@ -474,10 +468,10 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
         # Final outputs
         #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
-        print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} ".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), runtime))
+        print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s ".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), runtime))
 
         # Plot final frame of lattice and generate output file
-        savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+        #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
         plotdat(lattice,pflag,nmax)
         plotdep(energy, order, nsteps, temp)
         test_equal(energy)
@@ -510,40 +504,41 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
             #update block with lowest row of worker above (or wrapping around to the next one)
             chunksize = nmax
 
-            # #send my top row to the "above" neighbor
-            # req=comm.Isend([lattice[offset,:],chunksize,MPI.DOUBLE], dest= above, tag=RTAG)
-            # #receive that neighbor’s bottom row into offset-1
-            # comm.Recv([lattice[offset-1, :], chunksize, MPI.DOUBLE], source=above, tag=LTAG)
 
-            # #send my bottom row to the "below" neighbor
-            # req=comm.Isend([lattice[offset+rows-1,:],chunksize,MPI.DOUBLE], dest= below, tag=RTAG)
-            # #receive that neighbor’s top row into offset+rows
-            # comm.Recv([lattice[offset+rows, :], chunksize, MPI.DOUBLE], source=below, tag=LTAG)
-
+         
             top_row_index    = (offset - 1) % nmax
             bottom_row_index = (offset + rows) % nmax
 
-            #send top row to rank 'above', receive bottom row from rank 'below'
-            comm.Sendrecv(
-                sendbuf=lattice[offset, :], dest=above, sendtag=0,
-                recvbuf=lattice[bottom_row_index, :], source=below, recvtag=0
-            )
+            # #send top row to rank 'above', receive bottom row from rank 'below'
+            # comm.Sendrecv(
+            #     sendbuf=lattice[offset, :], dest=above, sendtag=0,
+            #     recvbuf=lattice[bottom_row_index, :], source=below, recvtag=0
+            # )
 
-            #send bottom row to rank 'below', receive top row from rank 'above'
-            comm.Sendrecv(
-                sendbuf=lattice[offset+rows-1, :], dest=below, sendtag=1,
-                recvbuf=lattice[top_row_index, :], source=above, recvtag=1
-            )
+            # #send bottom row to rank 'below', receive top row from rank 'above'
+            # comm.Sendrecv(
+            #     sendbuf=lattice[offset+rows-1, :], dest=below, sendtag=1,
+            #     recvbuf=lattice[top_row_index, :], source=above, recvtag=1
+            # )
+
+
+            req=comm.Isend([lattice[offset+rows-1,:],chunksize,MPI.DOUBLE], dest= below, tag=ABOVE)
+            req = comm.Irecv([lattice[offset-1, :], chunksize, MPI.DOUBLE], source=above, tag=ABOVE)
+
+            req=comm.Isend([lattice[top_row_index,:],chunksize,MPI.DOUBLE], dest= above, tag=BELOW)
+            req =comm.Irecv([lattice[bottom_row_index, :], chunksize, MPI.DOUBLE], source=below, tag=BELOW)
+
+
 
             
               
         #send arrays to master
         comm.send(offset, dest=MASTER, tag=DONE)
         comm.send(rows, dest=MASTER, tag=DONE)
-        #comm.Send([lattice[offset,:],rows*nmax, MPI.DOUBLE], dest=MASTER, tag=DONE)
-        comm.Send([worker_energy, MPI.DOUBLE], dest = MASTER, tag =DONE)
-        comm.Send([worker_ratio, MPI.DOUBLE], dest = MASTER, tag =DONE)
-        comm.Send([worker_Qabs, MPI.DOUBLE], dest = MASTER, tag =DONE)
+
+        comm.Reduce(worker_energy, None, op=MPI.SUM, root=MASTER)
+        comm.Reduce(worker_Qabs, None, op=MPI.SUM, root=MASTER)
+        comm.Reduce(worker_ratio, None, op=MPI.SUM, root=MASTER)
 
         
 
