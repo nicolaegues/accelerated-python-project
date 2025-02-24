@@ -283,7 +283,7 @@ def get_order_Qab(arr,nmax, start, rows):
     
     return Qab
 #=======================================================================
-def MC_step_cols(arr,Ts,nmax, i, aran):
+def MC_step(arr,Ts,nmax, offset, rows):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -299,27 +299,49 @@ def MC_step_cols(arr,Ts,nmax, i, aran):
 	Returns:
 	  accept/(nmax**2) (float) = acceptance ratio for current MCS.
     """
+    scale=0.1+Ts
     accept = 0
-    for j in range(nmax):
-        
-        ang = aran[i,j]
-        en0 = one_energy(arr,i,j,nmax)
-        arr[i, j] += ang
-        en1 = one_energy(arr,i,j,nmax)
-        if en1<=en0:
-            accept += 1
-        else:
-        # Now apply the Monte Carlo test - compare
-        # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-            boltz = np.exp( -(en1 - en0) / Ts )
+    aran = np.random.normal(scale=scale, size=(nmax,nmax))
+    for i in range(offset, offset+rows, 2):    
+      for j in range(nmax):
+          
+          ang = aran[i,j]
+          en0 = one_energy(arr,i,j,nmax)
+          arr[i, j] += ang
+          en1 = one_energy(arr,i,j,nmax)
+          if en1<=en0:
+              accept += 1
+          else:
+          # Now apply the Monte Carlo test - compare
+          # exp( -(E_new - E_old) / T* ) >= rand(0,1)
+              boltz = np.exp( -(en1 - en0) / Ts )
 
-            if boltz >= np.random.uniform(0.0,1.0):
-                accept += 1
-            else:
-                arr[i, j] -= ang
+              if boltz >= np.random.uniform(0.0,1.0):
+                  accept += 1
+              else:
+                  arr[i, j] -= ang
+
+    for i in range(offset+1, offset+rows, 2):    
+      for j in range(nmax):
+          
+          ang = aran[i,j]
+          en0 = one_energy(arr,i,j,nmax)
+          arr[i, j] += ang
+          en1 = one_energy(arr,i,j,nmax)
+          if en1<=en0:
+              accept += 1
+          else:
+          # Now apply the Monte Carlo test - compare
+          # exp( -(E_new - E_old) / T* ) >= rand(0,1)
+              boltz = np.exp( -(en1 - en0) / Ts )
+
+              if boltz >= np.random.uniform(0.0,1.0):
+                  accept += 1
+              else:
+                  arr[i, j] -= ang
 
     #return accept/(nmax*nmax)
-    return accept
+    return accept/(rows*nmax)
 #=======================================================================
 
 MAXWORKER  = 17          # maximum number of worker tasks
@@ -352,17 +374,16 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     size = comm.Get_size()
     rank = comm.Get_rank()
     numworkers = size - 1
-    print(size)
 
     lattice = np.zeros((nmax, nmax))
 
     
     # Create array to store the runtimes
-    rep_runtimes = np.zeros(nreps)
+    #rep_runtimes = np.zeros(nreps)
 
-    for rep in range(nreps): 
+    #for rep in range(nreps): 
           
-      if rank == MASTER: 
+    if rank == MASTER: 
         # Create and initialise lattice
         lattice = initdat(nmax)
         # Plot initial frame of lattice
@@ -430,14 +451,12 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
             comm.Recv([worker_ratio, MPI.DOUBLE], source = i, tag = DONE)
             comm.Recv([worker_Qabs, MPI.DOUBLE], source = i, tag = DONE)
 
-            all_worker_energies[i] = worker_energy
-            all_worker_ratios[i] = worker_ratio
-            all_worker_Qabs[i] = worker_Qabs
-            print("sign of life x1")
+            all_worker_energies[i-1] = worker_energy
+            all_worker_ratios[i-1] = worker_ratio
+            all_worker_Qabs[i-1] = worker_Qabs
 
 
 
-        print("sign of life x2")
         energy[1:] = all_worker_energies.sum(axis = 0)
         ratio[1:] = all_worker_ratios.mean(axis = 0 )
         
@@ -449,92 +468,99 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
         order[1:] =  eigenvalues[:, -1]  #all the max eigenvals
 
 
-        final = MPI.time()
+        final = MPI.Wtime()
         runtime = final - initial
+        #rep_runtimes[rep] = runtime
 
         # Final outputs
-        print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+        #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+        print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} ".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), runtime))
+
         # Plot final frame of lattice and generate output file
         savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
         plotdat(lattice,pflag,nmax)
         plotdep(energy, order, nsteps, temp)
-        test_equal()
+        test_equal(energy)
 
     #************************* workers code **********************************/
 
-      elif rank != 0: 
-          
-          
-          offset = comm.recv(source=MASTER, tag=BEGIN)
-          rows = comm.recv(source=MASTER, tag=BEGIN)
-          above = comm.recv(source=MASTER, tag=BEGIN)
-          below = comm.recv(source=MASTER, tag=BEGIN)
+    elif rank != 0: 
+        
+        
+        offset = comm.recv(source=MASTER, tag=BEGIN)
+        rows = comm.recv(source=MASTER, tag=BEGIN)
+        above = comm.recv(source=MASTER, tag=BEGIN)
+        below = comm.recv(source=MASTER, tag=BEGIN)
 
-          chunksize = rows*nmax
-          comm.Recv([lattice[offset, :], chunksize, MPI.DOUBLE], source=MASTER, tag=BEGIN)
+        chunksize = rows*nmax
+        comm.Recv([lattice[offset, :], chunksize, MPI.DOUBLE], source=MASTER, tag=BEGIN)
 
-          worker_energy = np.zeros(nsteps,dtype=np.float64)
-          worker_ratio = np.zeros(nsteps,dtype=np.float64)
-          worker_Qabs = np.zeros((nsteps, 3, 3), dtype=np.float64)
+        worker_energy = np.zeros(nsteps,dtype=np.float64)
+        worker_ratio = np.zeros(nsteps,dtype=np.float64)
+        worker_Qabs = np.zeros((nsteps, 3, 3), dtype=np.float64)
+
+      
+        for it in range(nsteps):
+
+            worker_ratio[it] = MC_step(lattice,temp,nmax, offset, rows)
+            worker_energy[it] = all_energy(lattice,nmax, offset, rows)
+            worker_Qabs[it] = get_order_Qab(lattice,nmax, offset, rows)
+
+            
+            #update block with lowest row of worker above (or wrapping around to the next one)
+            chunksize = nmax
+
+            # #send my top row to the "above" neighbor
+            # req=comm.Isend([lattice[offset,:],chunksize,MPI.DOUBLE], dest= above, tag=RTAG)
+            # #receive that neighbor’s bottom row into offset-1
+            # comm.Recv([lattice[offset-1, :], chunksize, MPI.DOUBLE], source=above, tag=LTAG)
+
+            # #send my bottom row to the "below" neighbor
+            # req=comm.Isend([lattice[offset+rows-1,:],chunksize,MPI.DOUBLE], dest= below, tag=RTAG)
+            # #receive that neighbor’s top row into offset+rows
+            # comm.Recv([lattice[offset+rows, :], chunksize, MPI.DOUBLE], source=below, tag=LTAG)
+
+            top_row_index    = (offset - 1) % nmax
+            bottom_row_index = (offset + rows) % nmax
+
+            #send top row to rank 'above', receive bottom row from rank 'below'
+            comm.Sendrecv(
+                sendbuf=lattice[offset, :], dest=above, sendtag=0,
+                recvbuf=lattice[bottom_row_index, :], source=below, recvtag=0
+            )
+
+            #send bottom row to rank 'below', receive top row from rank 'above'
+            comm.Sendrecv(
+                sendbuf=lattice[offset+rows-1, :], dest=below, sendtag=1,
+                recvbuf=lattice[top_row_index, :], source=above, recvtag=1
+            )
+
+            
+              
+        #send arrays to master
+        comm.send(offset, dest=MASTER, tag=DONE)
+        comm.send(rows, dest=MASTER, tag=DONE)
+        #comm.Send([lattice[offset,:],rows*nmax, MPI.DOUBLE], dest=MASTER, tag=DONE)
+        comm.Send([worker_energy, MPI.DOUBLE], dest = MASTER, tag =DONE)
+        comm.Send([worker_ratio, MPI.DOUBLE], dest = MASTER, tag =DONE)
+        comm.Send([worker_Qabs, MPI.DOUBLE], dest = MASTER, tag =DONE)
 
         
-          for it in range(nsteps):
-              
-              scale=0.1+temp
-              accept = 0
-              aran = np.random.normal(scale=scale, size=(nmax,nmax))
-
-              #Alternating row approach:
-              
-              for i in range(offset, offset+rows, 2):
-                accept += MC_step_cols(lattice,temp,nmax, i, aran)
 
 
-              for i in range(offset+1,offset+rows, 2):
-                if i ==offset +rows-1: # i.e., if we are on the last(upper) row
-                    
-                    #update block with lowest row of worker above (or wrapping around to the next one)
-                    chunksize = nmax
-
-                    #send the lowest row to the worker below
-                    req=comm.Isend([lattice[offset,:],chunksize,MPI.DOUBLE], dest=below, tag=RTAG)
-
-                    #receive the lowest row from the worker above - replace our lowest row with it (due to wraparound). So that our highest row now works with updated row "above"
-                    comm.Recv([lattice[offset, :], chunksize, MPI.DOUBLE], source=above, tag=RTAG)
-
-                accept += MC_step_cols(lattice,temp,nmax, i, aran)
-
-              worker_ratio[it] = accept/(rows*nmax)
-              worker_energy[it] = all_energy(lattice,nmax, offset, rows)
-              worker_Qabs[it] = get_order_Qab(lattice,nmax, offset, rows)
-
-
-
-
-          #send arrays to master
-          comm.send(offset, dest=MASTER, tag=DONE)
-          comm.send(rows, dest=MASTER, tag=DONE)
-          #comm.Send([lattice[offset,:],rows*nmax, MPI.DOUBLE], dest=MASTER, tag=DONE)
-          comm.Send([worker_energy, MPI.DOUBLE], dest = MASTER, tag =DONE)
-          comm.Send([worker_ratio, MPI.DOUBLE], dest = MASTER, tag =DONE)
-          comm.Send([worker_Qabs, MPI.DOUBLE], dest = MASTER, tag =DONE)
-
-          
-
-  
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 #
 if __name__ == '__main__':
-    if int(len(sys.argv)) == 6:
-        PROGNAME = sys.argv[0]
-        ITERATIONS = int(sys.argv[1])
-        SIZE = int(sys.argv[2])
-        TEMPERATURE = float(sys.argv[3])
-        PLOTFLAG = int(sys.argv[4])
-        NREPS =  int(sys.argv[5])
-        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
-    else:
-        print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
+  if int(len(sys.argv)) == 6:
+      PROGNAME = sys.argv[0]
+      ITERATIONS = int(sys.argv[1])
+      SIZE = int(sys.argv[2])
+      TEMPERATURE = float(sys.argv[3])
+      PLOTFLAG = int(sys.argv[4])
+      NREPS =  int(sys.argv[5])
+      main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
+  else:
+      print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
