@@ -29,6 +29,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import pandas as pd
 
 #=======================================================================
 def initdat(nmax):
@@ -339,9 +340,13 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
 
       #rep_runtimes[rep] = runtime
       runtimes[s] = runtime
+      print(nmax)
 
     data = np.column_stack((sizes, runtimes))
-    np.savetxt("runtimes_vs_sizes.csv", data, delimiter=",", header="Data Size,Runtime", comments="")
+    np.savetxt("runtimes_vs_sizes.csv", data, delimiter=",", header="data_size, python_runtime", comments="")
+    # data = pd.read_csv("runtimes_vs_sizes.csv")
+    # data["Runtime"] = runtimes
+    # data.to_csv("runtimes_vs_sizes.csv", index=False)
 
     # Final outputs
     #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
@@ -354,7 +359,7 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 #
-sizes = np.array([20, 50, 100, 150, 200, 250, 300, 350, 400, 500 ])
+sizes = np.array([20, 50, 100, 150, 200, 250])
 if __name__ == '__main__':
     if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
