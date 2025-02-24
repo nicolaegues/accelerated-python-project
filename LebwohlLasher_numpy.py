@@ -342,9 +342,12 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
       #rep_runtimes[rep] = runtime
       runtimes[s] = runtime
 
-    data = pd.read_csv("runtimes_vs_sizes.csv")
-    data["numpy_runtimes"] = runtimes
-    data.to_csv("runtimes_vs_sizes.csv", index=False)
+    # data = pd.read_csv("runtimes_vs_sizes.csv")
+    # data["numpy_runtimes"] = runtimes
+    # data.to_csv("runtimes_vs_sizes.csv", index=False)
+
+    data = np.column_stack((sizes, runtimes))
+    np.savetxt("runtimes_vs_sizes_non_OG.csv", data, delimiter=",", header="data_size, python_runtime", comments="")
 
     
     # Final outputs
@@ -358,7 +361,7 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 # #
-sizes = np.array([20, 50, 100, 150, 200, 250, 300, 350, 400, 500 ])
+sizes = np.array([20, 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000 ])
 if __name__ == '__main__':
     if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
