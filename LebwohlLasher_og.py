@@ -291,14 +291,16 @@ def MC_step(arr,Ts,nmax):
                     arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, nmax, temp, pflag, nreps):
+def main(program, nsteps, sizes, temp, pflag, nreps):
   
     np.random.seed(seed=42)
     
     # Create array to store the runtimes
-    rep_runtimes = np.zeros(nreps)
+    #rep_runtimes = np.zeros(nreps)
 
-    for rep in range(nreps): 
+    #for rep in range(nreps): 
+    runtimes = np.zeros(len(sizes))
+    for s, nmax in enumerate(sizes): 
           
       """
       Arguments:
@@ -317,9 +319,9 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       # Plot initial frame of lattice
       plotdat(lattice,pflag,nmax)
       # Create arrays to store energy, acceptance ratio and order parameter
-      energy = np.zeros(nsteps+1,dtype=np.dtype)
-      ratio = np.zeros(nsteps+1,dtype=np.dtype)
-      order = np.zeros(nsteps+1,dtype=np.dtype)
+      energy = np.zeros(nsteps+1)
+      ratio = np.zeros(nsteps+1)
+      order = np.zeros(nsteps+1)
       # Set initial values in arrays
       energy[0] = all_energy(lattice,nmax)
       ratio[0] = 0.5 # ideal value
@@ -335,20 +337,24 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       final = time.time()
       runtime = final-initial
 
-      rep_runtimes[rep] = runtime
+      #rep_runtimes[rep] = runtime
+      runtimes[s] = runtime
 
-    
+    data = np.column_stack((sizes, runtimes))
+    np.savetxt("runtimes_vs_sizes.csv", data, delimiter=",", header="Data Size,Runtime", comments="")
+
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
-    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
-    plotdat(lattice,pflag,nmax)
+    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    #plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
-    test_equal()
+    #test_equal()
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 #
+sizes = np.array([20, 50, 100, 150, 200, 250, 300, 350, 400, 500 ])
 if __name__ == '__main__':
     if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
@@ -357,7 +363,7 @@ if __name__ == '__main__':
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
         NREPS =  int(sys.argv[5])
-        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
+        main(PROGNAME, ITERATIONS, sizes, TEMPERATURE, PLOTFLAG, NREPS)
     else:
         print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
