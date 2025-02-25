@@ -30,6 +30,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from numba import jit
+import pandas as pd
 
 #=======================================================================
 def initdat(nmax):
@@ -285,9 +286,11 @@ def MC_step(arr,Ts,nmax):
 def main(program, nsteps, nmax, temp, pflag, nreps):
     
     # Create array to store the runtimes
-    rep_runtimes = np.zeros(nreps)
+    #rep_runtimes = np.zeros(nreps)
 
-    for rep in range(nreps): 
+    #for rep in range(nreps): 
+    runtimes = np.zeros(nreps)
+    for s in range(nreps):
           
       """
       Arguments:
@@ -306,9 +309,9 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       # Plot initial frame of lattice
       plotdat(lattice,pflag,nmax)
       # Create arrays to store energy, acceptance ratio and order parameter
-      energy = np.zeros(nsteps+1,dtype=np.dtype)
-      ratio = np.zeros(nsteps+1,dtype=np.dtype)
-      order = np.zeros(nsteps+1,dtype=np.dtype)
+      energy = np.zeros(nsteps+1)
+      ratio = np.zeros(nsteps+1)
+      order = np.zeros(nsteps+1)
       # Set initial values in arrays
       energy[0] = all_energy(lattice,nmax)
       ratio[0] = 0.5 # ideal value
@@ -324,19 +327,28 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       final = time.time()
       runtime = final-initial
 
-      rep_runtimes[rep] = runtime
+      #rep_runtimes[rep] = runtime
+      runtimes[s] = runtime
 
-    
+    data = pd.read_csv("runtime_reps_LP.csv")
+    data["serial_numba_runtimes"] = runtimes
+    data.to_csv("runtime_reps_LP.csv", index=False)
+
+    # data = np.column_stack((sizes, runtimes))
+    # np.savetxt("/user/home/fl21008/LL_acceleration/runtimes_vs_threads_BC.csv", data, delimiter=",", header="data_size, numba_runtime", comments="")
+
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
     #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
-    plotdat(lattice,pflag,nmax)
-    plotdep(energy, order, nsteps, temp)
+    #plotdat(lattice,pflag,nmax)
+    #plotdep(energy, order, nsteps, temp)
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 #
+#sizes = np.array([20, 20, 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000 ])
+
 if __name__ == '__main__':
     if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
