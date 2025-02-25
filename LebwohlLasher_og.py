@@ -292,7 +292,7 @@ def MC_step(arr,Ts,nmax):
                     arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, sizes, temp, pflag, nreps):
+def main(program, nsteps, nmax, temp, pflag, nreps):
   
     np.random.seed(seed=42)
     
@@ -300,8 +300,8 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
     #rep_runtimes = np.zeros(nreps)
 
     #for rep in range(nreps): 
-    runtimes = np.zeros(len(sizes))
-    for s, nmax in enumerate(sizes): 
+    runtimes = np.zeros(nreps)
+    for s in range(nreps): 
           
       """
       Arguments:
@@ -340,13 +340,17 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
 
       #rep_runtimes[rep] = runtime
       runtimes[s] = runtime
-      print(nmax)
 
-    data = np.column_stack((sizes, runtimes))
-    np.savetxt("runtimes_vs_sizes.csv", data, delimiter=",", header="data_size, python_runtime", comments="")
-    # data = pd.read_csv("runtimes_vs_sizes.csv")
-    # data["Runtime"] = runtimes
-    # data.to_csv("runtimes_vs_sizes.csv", index=False)
+      # data = pd.read_csv("/user/home/fl21008/LL_acceleration/runtimes_vs_sizes_non_OG_BC.csv")
+      # data.loc[10, "python_runtimes"] = runtime
+      # data.to_csv("/user/home/fl21008/LL_acceleration/runtimes_vs_sizes_non_OG_BC.csv", index=False)
+
+
+    #data = np.column_stack((np.arange(nreps), runtimes))
+    #np.savetxt("/user/home/fl21008/LL_acceleration/runtime_reps.csv", data, delimiter=",", header="rep, python_runtime", comments="")
+    data = pd.read_csv("runtime_reps_LP.csv")
+    data["python_runtime"] = runtimes
+    data.to_csv("runtime_reps_LP.csv", index=False)
 
     # Final outputs
     #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
@@ -359,7 +363,8 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 #
-sizes = np.array([20, 50, 100, 150, 200, 250])
+#sizes = np.array([500])
+
 if __name__ == '__main__':
     if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
@@ -368,7 +373,7 @@ if __name__ == '__main__':
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
         NREPS =  int(sys.argv[5])
-        main(PROGNAME, ITERATIONS, sizes, TEMPERATURE, PLOTFLAG, NREPS)
+        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
     else:
         print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
