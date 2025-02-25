@@ -29,6 +29,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import pandas as pd
 
 import os
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -207,35 +208,8 @@ def all_energy(arr, offset, rows):
     return enall
 #=======================================================================
 
-def get_order(arr,nmax):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function to calculate the order parameter of a lattice
-      using the Q tensor approach, as in equation (3) of the
-      project notes.  Function returns S_lattice = max(eigenvalues(Q_ab)).
-	Returns:
-	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
-    """
-    delta = np.eye(3,3)
-    #
-    # Generate a 3D unit vector for each cell (i,j) and
-    # put it in a (3,i,j) array.
-    #
-    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
-
-    Qab = np.einsum('aij,bij->ab', lab, lab)* 3 - nmax**2 *delta
-    #follows general pattern of: np.einsum('input_indices->output_indices', tensor1, tensor2)
-    #summing over i, j: which is why i and j appear in input but not output
-
-    Qab = Qab/(2*nmax*nmax)
-    eigenvalues,eigenvectors = np.linalg.eig(Qab)
-
-    return eigenvalues.max()
  
-def get_order_Qab(arr,nmax, offset, rows):
+def get_order(arr,nmax, offset, rows):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -261,8 +235,11 @@ def get_order_Qab(arr,nmax, offset, rows):
     #follows general pattern of: np.einsum('input_indices->output_indices', tensor1, tensor2)
     #summing over i, j: which is why i and j appear in input but not output
 
-    
-    return Qab
+    Qab = Qab/(2*rows*nmax)
+    eigenvalues,eigenvectors = np.linalg.eig(Qab)
+
+    return eigenvalues.max()
+ 
 #=======================================================================
 def mc_vec_diagonals(arr, aran, boltz_random, Ts, mask):
 
@@ -389,7 +366,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
         # Set initial values in arrays
         energy[0] = all_energy(lattice, offset=0, rows=nmax)
         ratio[0] = 0.5 # ideal value
-        order[0] = get_order(lattice,nmax)
+        order[0] = get_order(lattice,nmax, offset = 0, rows = nmax)
 
         #Distribute work to workers. Will split the lattice into row-blocks. 
         averow = nmax//numworkers
@@ -427,11 +404,11 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
         #wait for results from all worker tasks
         master_local_energy= np.zeros( nsteps,dtype=np.float64)
-        master_local_Qab = np.zeros(( nsteps, 3, 3),dtype=np.float64)
+        master_local_order = np.zeros( nsteps,dtype=np.float64)
         master_local_ratio = np.zeros( nsteps,dtype=np.float64)
 
         master_energy= np.zeros( nsteps,dtype=np.float64)
-        master_Qab = np.zeros(( nsteps, 3, 3),dtype=np.float64)
+        master_order = np.zeros( nsteps,dtype=np.float64)
         master_ratio = np.zeros( nsteps,dtype=np.float64)
 
         for i in range(1,numworkers+1):
@@ -442,22 +419,24 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
            
         comm.Reduce(master_local_energy, master_energy, op=MPI.SUM, root=MASTER)
-        comm.Reduce(master_local_Qab, master_Qab, op=MPI.SUM, root=MASTER)
+        comm.Reduce(master_local_order, master_order, op=MPI.SUM, root=MASTER)
         comm.Reduce(master_local_ratio, master_ratio, op=MPI.SUM, root=MASTER)
 
 
         energy[1:] = master_energy
         ratio[1:] = master_ratio/numworkers #to get the mean ratios
-        
-        final_Qabs = master_Qab/(2*nmax*nmax)
-        eigenvalues = np.linalg.eigvalsh(final_Qabs)
-          
-        order[1:] =  eigenvalues[:, -1]  #all the max eigenvals
+        order[1:] =  master_order/numworkers
 
 
         final = MPI.Wtime()
         runtime = final - initial
         #rep_runtimes[rep] = runtime
+
+        
+        # data = pd.read_csv("/user/home/fl21008/LL_acceleration/runtimes_vs_threads_BC.csv")
+        # data.loc[nreps, "mpi_runtimes"] = runtime
+        # data.to_csv("/user/home/fl21008/LL_acceleration/runtimes_vs_threads_BC.csv", index=False)
+
 
         # Final outputs
         #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
@@ -465,9 +444,9 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
         # Plot final frame of lattice and generate output file
         #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
-        plotdat(lattice,pflag,nmax)
+        #plotdat(lattice,pflag,nmax)
         plotdep(energy, order, nsteps, temp)
-        test_equal(energy)
+        #test_equal(energy)
 
     #************************* workers code **********************************/
 
@@ -486,20 +465,17 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
         worker_energy = np.zeros(nsteps,dtype=np.float64)
         worker_ratio = np.zeros(nsteps,dtype=np.float64)
-        worker_Qabs = np.zeros((nsteps, 3, 3), dtype=np.float64)
-
+        worker_order = np.zeros(nsteps,dtype=np.float64)
       
         for it in range(nsteps):
 
             worker_ratio[it] = MC_step(lattice,temp,nmax, offset, rows)
             worker_energy[it] = all_energy(lattice, offset, rows)
-            worker_Qabs[it] = get_order_Qab(lattice, nmax, offset, rows)
+            worker_order[it] = get_order(lattice, nmax, offset, rows)
 
             
             #update block with lowest row of worker above (or wrapping around to the next one)
 
-
-    
             top_row_index    = (offset - 1) % nmax
             bottom_row_index = (offset + rows) % nmax
 
@@ -532,7 +508,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
         comm.send(rows, dest=MASTER, tag=DONE)
 
         comm.Reduce(worker_energy, None, op=MPI.SUM, root=MASTER)
-        comm.Reduce(worker_Qabs, None, op=MPI.SUM, root=MASTER)
+        comm.Reduce(worker_order, None, op=MPI.SUM, root=MASTER)
         comm.Reduce(worker_ratio, None, op=MPI.SUM, root=MASTER)
 
         
