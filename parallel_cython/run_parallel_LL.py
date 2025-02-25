@@ -210,9 +210,9 @@ def main(program, nsteps, nmax, temp, pflag, threads):
     #data_file = "/user/home/fl21008/LL_acceleration/runtimes_vs_sizes_non_OG_BC.csv"
     #data_file = "/user/home/fl21008/LL_acceleration/runtimes_vs_threads_BC.csv"
 
-    data = pd.read_csv(data_file)
-    data.loc[pflag, "parallel_cython_runtimes"] = runtime
-    data.to_csv(data_file, index=False)
+    # data = pd.read_csv(data_file)
+    # data.loc[pflag, "parallel_cython_runtimes"] = runtime
+    # data.to_csv(data_file, index=False)
 
     
 

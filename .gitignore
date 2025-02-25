@@ -1,11 +1,13 @@
 #Ignore the generated C file from Cython
-LebwohlLasher_cy.c
+LebwohlLasher_cy_serial.c
 
 #Ignore compiled objects
-LebwohlLasher_cy.cpython-312-x86_64-linux-gnu.so
+LebwohlLasher_cy_serial.cpython-312-x86_64-linux-gnu.so
 
 #Ignore build directory
 build/
+
+__pycache__/
 
 #cython html annotations file
 LebwohlLasher_cy.html
