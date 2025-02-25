@@ -33,6 +33,7 @@ import matplotlib as mpl
 cimport numpy as cnp
 from libc.math cimport cos, exp, M_PI
 from libc.stdlib cimport rand, RAND_MAX
+import pandas as pd
 
 #=======================================================================
 def initdat(nmax):
@@ -379,9 +380,11 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       #int it
 
 
-    rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
+    #rep_runtimes = np.zeros(nreps)  # Create array to store the runtimes
   
-    for rep in range(nreps): 
+    #for rep in range(nreps): 
+    runtimes = np.zeros(nreps)
+    for s in range(nreps):
 
 
       # Create and initialise lattice
@@ -407,14 +410,18 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       final = time.time()
       runtime = final-initial
 
-      rep_runtimes[rep] = runtime
+      #rep_runtimes[rep] = runtime
+      runtimes[s] = runtime
 
-    
+    data = pd.read_csv("runtime_reps_LP.csv")
+    data["serial_cython_runtimes"] = runtimes
+    data.to_csv("runtime_reps_LP.csv", index=False)
+
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
     # Plot final frame of lattice and generate output file
     # savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
-    plotdat(lattice,pflag,nmax)
-    plotdep(energy, order, nsteps, temp)
-    test_equal(energy)
+    #plotdat(lattice,pflag,nmax)
+    #plotdep(energy, order, nsteps, temp)
+    #test_equal(energy)
 #=======================================================================
