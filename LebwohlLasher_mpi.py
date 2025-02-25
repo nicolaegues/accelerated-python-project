@@ -173,41 +173,25 @@ def test_equal(curr_energy):
 
 #=======================================================================
 
-def one_energy(arr,ix,iy,nmax):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-	  ix (int) = x lattice coordinate of cell;
-	  iy (int) = y lattice coordinate of cell;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function that computes the energy of a single cell of the
-      lattice taking into account periodic boundaries.  Working with
-      reduced energy (U/epsilon), equivalent to setting epsilon=1 in
-      equation (1) in the project notes.
-	Returns:
-	  en (float) = reduced energy of cell.
-    """
-    en = 0.0
-    ixp = (ix+1)%nmax # These are the coordinates
-    ixm = (ix-1)%nmax # of the neighbours
-    iyp = (iy+1)%nmax # with wraparound
-    iym = (iy-1)%nmax #
-#
-# Add together the 4 neighbour contributions
-# to the energy
-#
-    ang = arr[ix,iy]-arr[ixp,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ixm,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iyp]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iym]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
+def one_energy_vec(arr): 
+    
+    ang_ixp = arr - np.roll(arr, shift=-1, axis=0)
+    ang_ixm = arr - np.roll(arr, shift=1, axis=0)
+    ang_iyp = arr - np.roll(arr, shift=-1, axis=1)
+    ang_iym = arr - np.roll(arr, shift=1, axis=1)
+    #
+    # Add together the 4 neighbour contributions
+    # to the energy
+    #
+
+    en = 0.5*(1.0 - 3.0*np.cos(ang_ixp)**2) 
+    en += 0.5*(1.0 - 3.0*np.cos(ang_ixm)**2) 
+    en += 0.5*(1.0 - 3.0*np.cos(ang_iyp)**2) 
+    en += 0.5*(1.0 - 3.0*np.cos(ang_iym)**2)
+
     return en
 #=======================================================================
-def all_energy(arr,nmax, start, rows):
+def all_energy(arr, offset, rows):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -218,10 +202,8 @@ def all_energy(arr,nmax, start, rows):
 	Returns:
 	  enall (float) = reduced energy of lattice.
     """
-    enall = 0.0
-    for i in range(start, start+rows):
-        for j in range(nmax):
-            enall += one_energy(arr,i,j,nmax)
+    arr_sub = arr[offset:offset+rows, :]
+    enall = np.sum(one_energy_vec(arr_sub))
     return enall
 #=======================================================================
 
@@ -237,25 +219,23 @@ def get_order(arr,nmax):
 	Returns:
 	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
     """
-    Qab = np.zeros((3,3))
     delta = np.eye(3,3)
     #
     # Generate a 3D unit vector for each cell (i,j) and
     # put it in a (3,i,j) array.
     #
     lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
-    for a in range(3):
-        for b in range(3):
-            for i in range(nmax):
-                for j in range(nmax):
-                    Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
+
+    Qab = np.einsum('aij,bij->ab', lab, lab)* 3 - nmax**2 *delta
+    #follows general pattern of: np.einsum('input_indices->output_indices', tensor1, tensor2)
+    #summing over i, j: which is why i and j appear in input but not output
 
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
-    return eigenvalues.max()
 
+    return eigenvalues.max()
  
-def get_order_Qab(arr,nmax, start, rows):
+def get_order_Qab(arr,nmax, offset, rows):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
@@ -267,22 +247,42 @@ def get_order_Qab(arr,nmax, start, rows):
 	Returns:
 	  max(eigenvalues(Qab)) (float) = order parameter for lattice.
     """
-    Qab = np.zeros((3,3))
+    
+    arr_sub = arr[offset:offset+rows, :]
+
     delta = np.eye(3,3)
     #
     # Generate a 3D unit vector for each cell (i,j) and
     # put it in a (3,i,j) array.
     #
-    lab = np.vstack((np.cos(arr),np.sin(arr),np.zeros_like(arr))).reshape(3,nmax,nmax)
-    for a in range(3):
-        for b in range(3):
-            for i in range(start, start+rows):
-                for j in range(nmax):
-                    Qab[a,b] += 3*lab[a,i,j]*lab[b,i,j] - delta[a,b]
+    lab = np.vstack((np.cos(arr_sub),np.sin(arr_sub),np.zeros_like(arr_sub))).reshape(3,rows,nmax)
+
+    Qab = np.einsum('aij,bij->ab', lab, lab)* 3 - (rows*nmax) *delta
+    #follows general pattern of: np.einsum('input_indices->output_indices', tensor1, tensor2)
+    #summing over i, j: which is why i and j appear in input but not output
 
     
     return Qab
 #=======================================================================
+def mc_vec_diagonals(arr, aran, boltz_random, Ts, mask):
+
+      en0 = one_energy_vec(arr)[mask]
+
+      arr[mask] += aran[mask]
+
+      en1 = one_energy_vec(arr)[mask]
+
+      boltz = np.exp( -(en1 - en0) / Ts )
+      accept_mask = (en1 <= en0) | (boltz >= boltz_random[mask])
+
+      final_cells = arr[mask]
+      final_cells[ ~accept_mask] -= aran[mask][ ~accept_mask]
+
+      arr[mask] = final_cells
+
+      accept = np.sum(accept_mask)
+
+      return accept
 def MC_step(arr,Ts,nmax, offset, rows):
     """
     Arguments:
@@ -299,49 +299,34 @@ def MC_step(arr,Ts,nmax, offset, rows):
 	Returns:
 	  accept/(nmax**2) (float) = acceptance ratio for current MCS.
     """
+    #
+    # Pre-compute some random numbers.  This is faster than
+    # using lots of individual calls.  "scale" sets the width
+    # of the distribution for the angle changes - increases
+    # with temperature.
     scale=0.1+Ts
     accept = 0
+
+
     aran = np.random.normal(scale=scale, size=(nmax,nmax))
-    for i in range(offset, offset+rows, 2):    
-      for j in range(nmax):
-          
-          ang = aran[i,j]
-          en0 = one_energy(arr,i,j,nmax)
-          arr[i, j] += ang
-          en1 = one_energy(arr,i,j,nmax)
-          if en1<=en0:
-              accept += 1
-          else:
-          # Now apply the Monte Carlo test - compare
-          # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-              boltz = np.exp( -(en1 - en0) / Ts )
+    boltz_random = np.random.uniform(0.0,1.0, size = (nmax, nmax))
+    
+    grid_indices = np.indices((nmax, nmax))
+    #mask for first ("white") set of diagonals of a checkerboard
+    diag_mask_1 = grid_indices.sum(axis = 0) % 2 == 0
+    #mask for second ("black") set of diagonals of checkerboard
+    diag_mask_2 = ~diag_mask_1
 
-              if boltz >= np.random.uniform(0.0,1.0):
-                  accept += 1
-              else:
-                  arr[i, j] -= ang
+    row_mask = (grid_indices[0] >= offset) & (grid_indices[0] < offset + rows)
 
-    for i in range(offset+1, offset+rows, 2):    
-      for j in range(nmax):
-          
-          ang = aran[i,j]
-          en0 = one_energy(arr,i,j,nmax)
-          arr[i, j] += ang
-          en1 = one_energy(arr,i,j,nmax)
-          if en1<=en0:
-              accept += 1
-          else:
-          # Now apply the Monte Carlo test - compare
-          # exp( -(E_new - E_old) / T* ) >= rand(0,1)
-              boltz = np.exp( -(en1 - en0) / Ts )
+    diag_mask_1 &= row_mask
+    diag_mask_2 &= row_mask
 
-              if boltz >= np.random.uniform(0.0,1.0):
-                  accept += 1
-              else:
-                  arr[i, j] -= ang
 
-    #return accept/(nmax*nmax)
-    return accept/(rows*nmax)
+    accept += mc_vec_diagonals(arr, aran, boltz_random, Ts, diag_mask_1)
+    accept += mc_vec_diagonals(arr, aran, boltz_random, Ts, diag_mask_2)
+
+    return accept/(nmax*nmax)
 #=======================================================================
 
 MAXWORKER  = 17          # maximum number of worker tasks
@@ -384,6 +369,14 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
     #for rep in range(nreps): 
           
     if rank == MASTER: 
+
+        if (numworkers > MAXWORKER) or (numworkers < MINWORKER):
+            print("ERROR: the number of tasks must be between %d and %d." % (MINWORKER+1,MAXWORKER+1))
+            print("Quitting...")
+            comm.Abort()
+
+        print("Starting LebwohlLasher_mpi with %d worker tasks." % numworkers)
+
         # Create and initialise lattice
         lattice = initdat(nmax)
         # Plot initial frame of lattice
@@ -394,7 +387,7 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
         ratio = np.zeros(nsteps+1,dtype=np.float64)
         order = np.zeros(nsteps+1,dtype=np.float64)
         # Set initial values in arrays
-        energy[0] = all_energy(lattice,nmax, start=0, rows=nmax)
+        energy[0] = all_energy(lattice, offset=0, rows=nmax)
         ratio[0] = 0.5 # ideal value
         order[0] = get_order(lattice,nmax)
 
@@ -486,8 +479,10 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
         above = comm.recv(source=MASTER, tag=BEGIN)
         below = comm.recv(source=MASTER, tag=BEGIN)
 
-        chunksize = rows*nmax
-        comm.Recv([lattice[offset, :], chunksize, MPI.DOUBLE], source=MASTER, tag=BEGIN)
+        #chunksize = rows*nmax
+        #comm.Recv([lattice[offset, :], chunksize, MPI.DOUBLE], source=MASTER, tag=BEGIN)
+        comm.Recv([lattice[offset:offset+rows, :], MPI.DOUBLE], source=MASTER, tag=BEGIN)
+
 
         worker_energy = np.zeros(nsteps,dtype=np.float64)
         worker_ratio = np.zeros(nsteps,dtype=np.float64)
@@ -497,15 +492,14 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
         for it in range(nsteps):
 
             worker_ratio[it] = MC_step(lattice,temp,nmax, offset, rows)
-            worker_energy[it] = all_energy(lattice,nmax, offset, rows)
-            worker_Qabs[it] = get_order_Qab(lattice,nmax, offset, rows)
+            worker_energy[it] = all_energy(lattice, offset, rows)
+            worker_Qabs[it] = get_order_Qab(lattice, nmax, offset, rows)
 
             
             #update block with lowest row of worker above (or wrapping around to the next one)
-            chunksize = nmax
 
 
-         
+    
             top_row_index    = (offset - 1) % nmax
             bottom_row_index = (offset + rows) % nmax
 
@@ -522,12 +516,13 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
             # )
 
 
-            req=comm.Isend([lattice[offset+rows-1,:],chunksize,MPI.DOUBLE], dest= below, tag=ABOVE)
-            req = comm.Irecv([lattice[offset-1, :], chunksize, MPI.DOUBLE], source=above, tag=ABOVE)
+            req1=comm.Isend([lattice[offset+rows-1,:],nmax,MPI.DOUBLE], dest= below, tag=ABOVE)
+            req2 = comm.Irecv([lattice[offset-1, :], nmax, MPI.DOUBLE], source=above, tag=ABOVE)
 
-            req=comm.Isend([lattice[top_row_index,:],chunksize,MPI.DOUBLE], dest= above, tag=BELOW)
-            req =comm.Irecv([lattice[bottom_row_index, :], chunksize, MPI.DOUBLE], source=below, tag=BELOW)
+            req3=comm.Isend([lattice[top_row_index,:],nmax,MPI.DOUBLE], dest= above, tag=BELOW)
+            req4 =comm.Irecv([lattice[bottom_row_index, :], nmax, MPI.DOUBLE], source=below, tag=BELOW)
 
+            MPI.Request.Waitall([req1, req2, req3, req4])
 
 
             
