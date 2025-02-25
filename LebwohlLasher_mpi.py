@@ -381,6 +381,14 @@ def main(program, nsteps, nmax, temp, pflag):
     # Create array to store the runtimes
           
     if rank == MASTER: 
+
+        if (numworkers > MAXWORKER) or (numworkers < MINWORKER):
+            print("ERROR: the number of tasks must be between %d and %d." % (MINWORKER+1,MAXWORKER+1))
+            print("Quitting...")
+            comm.Abort()
+
+        print("Starting LebwohlLasher_mpi with %d worker tasks." % numworkers)
+
         # Create and initialise lattice
         lattice = initdat(nmax)
         # Plot initial frame of lattice
