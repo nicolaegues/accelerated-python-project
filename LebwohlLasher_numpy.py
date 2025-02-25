@@ -291,7 +291,7 @@ def MC_step(arr,Ts,nmax):
 
 
 #=======================================================================
-def main(program, nsteps, sizes, temp, pflag, nreps):
+def main(program, nsteps, nmax, temp, pflag, nreps):
   
     np.random.seed(seed=42)
     
@@ -299,9 +299,9 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
     #rep_runtimes = np.zeros(nreps)
 
     #for rep in range(nreps): 
-    runtimes = np.zeros(len(sizes))
+    runtimes = np.zeros(nreps)
 
-    for s, nmax in enumerate(sizes):
+    for s in range(nreps):
           
       """
       Arguments:
@@ -337,17 +337,17 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
 
       final = time.time()
       runtime = final-initial
-      print(nmax)
+      #print(nmax)
 
       #rep_runtimes[rep] = runtime
       runtimes[s] = runtime
 
-    # data = pd.read_csv("runtimes_vs_sizes.csv")
+    # data = pd.read_csv("/user/home/fl21008/LL_acceleration/runtime_reps.csv")
     # data["numpy_runtimes"] = runtimes
-    # data.to_csv("runtimes_vs_sizes.csv", index=False)
+    # data.to_csv("/user/home/fl21008/LL_acceleration/runtime_reps.csv", index=False)
 
-    data = np.column_stack((sizes, runtimes))
-    np.savetxt("runtimes_vs_sizes_non_OG.csv", data, delimiter=",", header="data_size, python_runtime", comments="")
+    data = np.column_stack((np.arange(nreps), runtimes))
+    np.savetxt("runtime_reps_LP.csv", data, delimiter=",", header="rep, numpy_runtime", comments="")
 
     
     # Final outputs
@@ -361,7 +361,8 @@ def main(program, nsteps, sizes, temp, pflag, nreps):
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 # #
-sizes = np.array([20, 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000 ])
+#sizes = np.array([20, 20, 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000 ])
+
 if __name__ == '__main__':
     if int(len(sys.argv)) == 6:
         PROGNAME = sys.argv[0]
@@ -370,7 +371,7 @@ if __name__ == '__main__':
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
         NREPS =  int(sys.argv[5])
-        main(PROGNAME, ITERATIONS, sizes, TEMPERATURE, PLOTFLAG, NREPS)
+        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
     else:
         print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 # #=======================================================================
