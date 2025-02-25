@@ -353,7 +353,7 @@ DONE       = 4          # message tag
 MASTER     = 0          # taskid of first process
 
 
-def main(program, nsteps, nmax, temp, pflag, nreps):
+def main(program, nsteps, nmax, temp, pflag):
     """
     Arguments:
     program (string) = the name of the program;
@@ -379,9 +379,6 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
     
     # Create array to store the runtimes
-    #rep_runtimes = np.zeros(nreps)
-
-    #for rep in range(nreps): 
           
     if rank == MASTER: 
         # Create and initialise lattice
@@ -464,11 +461,9 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 
         final = MPI.Wtime()
         runtime = final - initial
-        #rep_runtimes[rep] = runtime
 
         # Final outputs
-        #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
-        print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s ".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), runtime))
+        print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s ".format(program, nmax,nsteps, temp,order[nsteps-1], np.mean(ratio), runtime))
 
         # Plot final frame of lattice and generate output file
         #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
@@ -548,14 +543,13 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 # main simulation function.
 #
 if __name__ == '__main__':
-  if int(len(sys.argv)) == 6:
+  if int(len(sys.argv)) == 5:
       PROGNAME = sys.argv[0]
       ITERATIONS = int(sys.argv[1])
       SIZE = int(sys.argv[2])
       TEMPERATURE = float(sys.argv[3])
       PLOTFLAG = int(sys.argv[4])
-      NREPS =  int(sys.argv[5])
-      main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
+      main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG)
   else:
       print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
