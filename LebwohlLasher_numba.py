@@ -5,7 +5,7 @@ This version in 2D.
 
 Run at the command line by typing:
 
-python LebwohlLasher.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> 
+python LebwohlLasher_numba.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> 
 
 where:
   ITERATIONS = number of Monte Carlo steps, where 1MCS is when each cell
@@ -28,6 +28,8 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+
+from numba import jit
 import pandas as pd
 
 #=======================================================================
@@ -120,7 +122,7 @@ def plotdep(energy, order, nsteps, temp):
         ax.set_xlabel("MCS")
     
     current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    plt.savefig(f"vs_MCS_plot_{current_datetime}")
+    #plt.savefig(f"vs_MCS_plot_{current_datetime}")
     plt.show()
     
 #=======================================================================
@@ -186,6 +188,7 @@ def test_equal(curr_energy):
 
 #=======================================================================
 
+@jit(nopython = True, cache = True)
 def one_energy(arr,ix,iy,nmax):
     """
     Arguments:
@@ -220,6 +223,7 @@ def one_energy(arr,ix,iy,nmax):
     en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
     return en
 #=======================================================================
+@jit(nopython = True, cache = True)
 def all_energy(arr,nmax):
     """
     Arguments:
@@ -237,6 +241,7 @@ def all_energy(arr,nmax):
             enall += one_energy(arr,i,j,nmax)
     return enall
 #=======================================================================
+@jit(nopython = True, cache = True)
 def get_order(arr,nmax):
     """
     Arguments:
@@ -265,6 +270,7 @@ def get_order(arr,nmax):
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max()
 #=======================================================================
+@jit(nopython = True, cache= True)
 def MC_step(arr,Ts,nmax):
     """
     Arguments:
@@ -290,7 +296,7 @@ def MC_step(arr,Ts,nmax):
     accept = 0
     xran = np.random.randint(0,high=nmax, size=(nmax,nmax))
     yran = np.random.randint(0,high=nmax, size=(nmax,nmax))
-    aran = np.random.normal(scale=scale, size=(nmax,nmax))
+    aran = np.random.normal(0, scale=scale, size=(nmax,nmax))
     for i in range(nmax):
         for j in range(nmax):
             ix = xran[i,j]
@@ -325,7 +331,7 @@ def main(program, nsteps, nmax, temp, pflag):
         This is the main function running the Lebwohl-Lasher simulation.
       Returns:
         NULL
-      """
+    """
   
     np.random.seed(seed=42)
    
@@ -356,6 +362,36 @@ def main(program, nsteps, nmax, temp, pflag):
     # Final outputs
     print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps, temp,order[nsteps-1], np.mean(ratio), runtime))
     # Plot final frame of lattice and generate output file
+    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+
+    # Create and initialise lattice
+    lattice = initdat(nmax)
+    # Plot initial frame of lattice
+    plotdat(lattice,pflag,nmax)
+    # Create arrays to store energy, acceptance ratio and order parameter
+    energy = np.zeros(nsteps+1)
+    ratio = np.zeros(nsteps+1)
+    order = np.zeros(nsteps+1)
+    # Set initial values in arrays
+    energy[0] = all_energy(lattice,nmax)
+    ratio[0] = 0.5 # ideal value
+    order[0] = get_order(lattice,nmax)
+
+    # Begin doing and timing some MC steps.
+    initial = time.time()
+    for it in range(1,nsteps+1):
+        ratio[it] = MC_step(lattice,temp,nmax)
+        energy[it] = all_energy(lattice,nmax)
+        order[it] = get_order(lattice,nmax)
+
+    final = time.time()
+    runtime = final-initial
+
+
+   
+    # Final outputs
+    #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    # Plot final frame of lattice and generate output file
     #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     #plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
@@ -363,7 +399,6 @@ def main(program, nsteps, nmax, temp, pflag):
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
-#
 
 if __name__ == '__main__':
     if int(len(sys.argv)) == 5:
