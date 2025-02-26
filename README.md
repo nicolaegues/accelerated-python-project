@@ -2,7 +2,7 @@
 
 #### Original file
 
-python LebwohlLasher.py [ITERATIONS] [SIZE] [TEMPERATURE] [PLOTFLAG]
+python LebwohlLasher_og.py [ITERATIONS] [SIZE] [TEMPERATURE] [PLOTFLAG]
 
 #### Numpy file
 
@@ -23,14 +23,14 @@ python LebwohlLasher_numba_parallel.py [ITERATIONS] [SIZE] [TEMPERATURE] [PLOTFL
 
 python setup_serial_LL.py build_ext -fi
 
-python run_serial_LL [ITERATIONS] [SIZE] [TEMPERATURE] [PLOTFLAG]
+python run_serial_LL.py [ITERATIONS] [SIZE] [TEMPERATURE] [PLOTFLAG]
 
 
 #### Parallel Cython
 
 python setup_parallel_LL.py build_ext -fi
 
-python run_parallel_LL [ITERATIONS] [SIZE] [TEMPERATURE] [PLOTFLAG] [THREADS]
+python run_parallel_LL.py [ITERATIONS] [SIZE] [TEMPERATURE] [PLOTFLAG] [THREADS]
 
 #### MPI
 
