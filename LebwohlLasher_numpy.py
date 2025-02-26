@@ -183,12 +183,23 @@ def test_equal(curr_energy):
     if are_equal: 
         print("The new energy values are the same as the original energy values - all good!")
     else: 
-        print("The energy values differ from the original - something went wrong. ")
+        print("The energy values differ from the original - something may have gone wrong. ")
 
 #=======================================================================
 
 
 def one_energy_vec(arr): 
+    """
+    Arguments:
+      arr (float(nmax,nmax)) = array that contains lattice data;
+      Description:
+        Function that computes the energy of a single cell of the
+        lattice taking into account periodic boundaries.  Working with
+        reduced energy (U/epsilon), equivalent to setting epsilon=1 in
+        equation (1) in the project notes.
+    Returns:
+      en (float) = reduced energy of cell.
+    """
     
     ang_ixp = arr - np.roll(arr, shift=-1, axis=0)
     ang_ixm = arr - np.roll(arr, shift=1, axis=0)
@@ -210,7 +221,7 @@ def all_energy(arr):
     """
     Arguments:
 	  arr (float(nmax,nmax)) = array that contains lattice data;
-      nmax (int) = side length of square lattice.
+      
     Description:
       Function to compute the energy of the entire lattice. Output
       is in reduced units (U/epsilon).
@@ -250,6 +261,19 @@ def get_order(arr,nmax):
     return eigenvalues.max()
 #=======================================================================
 def mc_vec_diagonals(arr, aran, boltz_random, Ts, mask):
+      """
+    Performs Monte Carlo updates on a subset of lattice sites (checkerboard diagonals).
+
+    Arguments:
+        arr (np.ndarray): 2D array representing the lattice with angle values.
+        aran (np.ndarray): 2D array of proposed random angle changes.
+        boltz_random (np.ndarray): 2D array of random values for Metropolis criterion.
+        Ts (float): Reduced temperature (T*), controlling acceptance probability.
+        mask (np.ndarray): Boolean mask indicating which lattice sites to update.
+
+    Returns:
+        int: The number of accepted updates.
+        """
 
       en0 = one_energy_vec(arr)[mask]
 
@@ -339,7 +363,7 @@ def main(program, nsteps, nmax, temp, pflag):
     ratio = np.zeros(nsteps+1)
     order = np.zeros(nsteps+1)
     # Set initial values in arrays
-    energy[0] = all_energy(lattice,nmax)
+    energy[0] = all_energy(lattice)
     ratio[0] = 0.5 # ideal value
     order[0] = get_order(lattice,nmax)
 
@@ -347,7 +371,7 @@ def main(program, nsteps, nmax, temp, pflag):
     initial = time.time()
     for it in range(1,nsteps+1):
         ratio[it] = MC_step(lattice,temp,nmax)
-        energy[it] = all_energy(lattice,nmax)
+        energy[it] = all_energy(lattice)
         order[it] = get_order(lattice,nmax)
 
     final = time.time()
@@ -382,10 +406,10 @@ def main(program, nsteps, nmax, temp, pflag):
 
     print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps, temp,order[nsteps-1], np.mean(ratio), runtime))
     # Plot final frame of lattice and generate output file
-    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     #plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
-    #test_equal()
+    #test_equal(energy)
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
