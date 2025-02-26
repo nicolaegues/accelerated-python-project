@@ -5,7 +5,9 @@ This version in 2D.
 
 Run at the command line by typing:
 
-python LebwohlLasher.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> (added by myself: <NREPS>)
+
+python setup_parallel_LL.py build_ext -fi 
+python run_parallel_LL <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> <THREADS>
 
 where:
   ITERATIONS = number of Monte Carlo steps, where 1MCS is when each cell

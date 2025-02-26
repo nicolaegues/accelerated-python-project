@@ -203,21 +203,12 @@ def main(program, nsteps, nmax, temp, pflag, threads):
     final = time.time()
     runtime = final-initial
 
-    #runtimes[s] = runtime
-    print(nmax, runtime)
-
-    data_file = "/user/home/fl21008/LL_acceleration/runtime_reps_BC.csv"
-    #data_file = "/user/home/fl21008/LL_acceleration/runtimes_vs_sizes_non_OG_BC.csv"
-    #data_file = "/user/home/fl21008/LL_acceleration/runtimes_vs_threads_BC.csv"
-
-    # data = pd.read_csv(data_file)
-    # data.loc[pflag, "parallel_cython_runtimes"] = runtime
-    # data.to_csv(data_file, index=False)
+    
 
     
 
     # Final outputs
-    #print("{}: Size: {:d}, Steps: {:d}, Threads: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, threads, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    print("{}: Size: {:d}, Steps: {:d}, Threads: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps, threads, temp,order[nsteps-1], np.mean(ratio), runtime))
     # Plot final frame of lattice and generate output file
     # savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     #plotdat(lattice,pflag,nmax)
