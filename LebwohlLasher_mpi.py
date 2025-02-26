@@ -190,7 +190,7 @@ def test_equal(curr_energy):
     if are_equal: 
         print("The new energy values are the same as the original energy values - all good!")
     else: 
-        print("The energy values differ from the original - something went wrong. ")
+        print("The energy values differ from the original - something may have gone wrong. ")
 
 #=======================================================================
 
@@ -476,8 +476,7 @@ def main(program, nsteps, nmax, temp, pflag):
         # Plot final frame of lattice and generate output file
         #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
         #plotdat(lattice,pflag,nmax)
-        #plotdep(energy, order, nsteps, temp)
-        #test_equal(energy)
+        plotdep(energy, order, nsteps, temp)
 
     #************************* workers code **********************************/
 

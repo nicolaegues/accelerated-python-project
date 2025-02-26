@@ -5,7 +5,7 @@ This version in 2D.
 
 Run at the command line by typing:
 
-python LebwohlLasher.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> (added by myself: <NREPS>)
+python LebwohlLasher.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> 
 
 where:
   ITERATIONS = number of Monte Carlo steps, where 1MCS is when each cell
@@ -13,7 +13,6 @@ where:
   SIZE = side length of square lattice
   TEMPERATURE = reduced temperature in range 0.0 - 2.0.
   PLOTFLAG = 0 for no plot, 1 for energy plot and 2 for angle plot.
-  (added by me: NREPS = number of times to run an experiment (the main function), in order to get a standard deviation on the runtime, for example.)
   
 The initial configuration is set at random. The boundaries
 are periodic throughout the simulation.  During the
@@ -95,6 +94,18 @@ def plotdat(arr,pflag,nmax):
 #=======================================================================
 
 def plotdep(energy, order, nsteps, temp): 
+    """
+    Function to plot the evolution of energy and order parameter over Monte Carlo steps.
+
+    Argumentss:
+        energy (np.ndarray): Array containing energy values at each Monte Carlo step.
+        order (np.ndarray): Array containing order parameter values at each Monte Carlo step.
+        nsteps (int): Number of Monte Carlo steps.
+        temp (float): Reduced temperature (T*), used for labeling the plots.
+
+    Returns:
+        None
+    """
     
     x = np.arange(nsteps + 1)
 
@@ -153,6 +164,15 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
 #=======================================================================
 
 def test_equal(curr_energy): 
+    """
+    Compares the computed energy values with a reference dataset.
+
+    Arguments:
+        curr_energy (np.ndarray): Array containing the newly computed energy values.
+
+    Returns:
+        None (prints a message saying whether the energy values match the original dataset).
+    """
     og_energy = np.loadtxt("OG_output.txt", usecols=(2,))
 
     curr_energy = np.round(curr_energy.astype(float), 4)
@@ -292,18 +312,9 @@ def MC_step(arr,Ts,nmax):
                     arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
-def main(program, nsteps, nmax, temp, pflag, nreps):
-  
-    np.random.seed(seed=42)
+def main(program, nsteps, nmax, temp, pflag):
     
-    # Create array to store the runtimes
-    #rep_runtimes = np.zeros(nreps)
-
-    #for rep in range(nreps): 
-    runtimes = np.zeros(nreps)
-    for s in range(nreps): 
-          
-      """
+    """
       Arguments:
       program (string) = the name of the program;
       nsteps (int) = number of Monte Carlo steps (MCS) to perform;
@@ -315,47 +326,37 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
       Returns:
         NULL
       """
-      # Create and initialise lattice
-      lattice = initdat(nmax)
-      # Plot initial frame of lattice
-      plotdat(lattice,pflag,nmax)
-      # Create arrays to store energy, acceptance ratio and order parameter
-      energy = np.zeros(nsteps+1)
-      ratio = np.zeros(nsteps+1)
-      order = np.zeros(nsteps+1)
-      # Set initial values in arrays
-      energy[0] = all_energy(lattice,nmax)
-      ratio[0] = 0.5 # ideal value
-      order[0] = get_order(lattice,nmax)
+  
+    np.random.seed(seed=42)
+   
+    # Create and initialise lattice
+    lattice = initdat(nmax)
+    # Plot initial frame of lattice
+    plotdat(lattice,pflag,nmax)
+    # Create arrays to store energy, acceptance ratio and order parameter
+    energy = np.zeros(nsteps+1)
+    ratio = np.zeros(nsteps+1)
+    order = np.zeros(nsteps+1)
+    # Set initial values in arrays
+    energy[0] = all_energy(lattice,nmax)
+    ratio[0] = 0.5 # ideal value
+    order[0] = get_order(lattice,nmax)
 
-      # Begin doing and timing some MC steps.
-      initial = time.time()
-      for it in range(1,nsteps+1):
-          ratio[it] = MC_step(lattice,temp,nmax)
-          energy[it] = all_energy(lattice,nmax)
-          order[it] = get_order(lattice,nmax)
+    # Begin doing and timing some MC steps.
+    initial = time.time()
+    for it in range(1,nsteps+1):
+        ratio[it] = MC_step(lattice,temp,nmax)
+        energy[it] = all_energy(lattice,nmax)
+        order[it] = get_order(lattice,nmax)
 
-      final = time.time()
-      runtime = final-initial
+    final = time.time()
+    runtime = final-initial
 
-      #rep_runtimes[rep] = runtime
-      runtimes[s] = runtime
-
-      # data = pd.read_csv("/user/home/fl21008/LL_acceleration/runtimes_vs_sizes_non_OG_BC.csv")
-      # data.loc[10, "python_runtimes"] = runtime
-      # data.to_csv("/user/home/fl21008/LL_acceleration/runtimes_vs_sizes_non_OG_BC.csv", index=False)
-
-
-    #data = np.column_stack((np.arange(nreps), runtimes))
-    #np.savetxt("/user/home/fl21008/LL_acceleration/runtime_reps.csv", data, delimiter=",", header="rep, python_runtime", comments="")
-    data = pd.read_csv("runtime_reps_LP.csv")
-    data["python_runtime"] = runtimes
-    data.to_csv("runtime_reps_LP.csv", index=False)
 
     # Final outputs
-    #print("{}: Size: {:d}, Steps: {:d}, Exp. reps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s \u00B1 {:8.6f} s".format(program, nmax,nsteps, nreps, temp,order[nsteps-1], np.mean(ratio), np.mean(rep_runtimes), np.std(rep_runtimes)))
+    print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Mean ratio : {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps, temp,order[nsteps-1], np.mean(ratio), runtime))
     # Plot final frame of lattice and generate output file
-    #savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
+    savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     #plotdat(lattice,pflag,nmax)
     #plotdep(energy, order, nsteps, temp)
     #test_equal()
@@ -363,17 +364,15 @@ def main(program, nsteps, nmax, temp, pflag, nreps):
 # Main part of program, getting command line arguments and calling
 # main simulation function.
 #
-#sizes = np.array([500])
 
 if __name__ == '__main__':
-    if int(len(sys.argv)) == 6:
+    if int(len(sys.argv)) == 5:
         PROGNAME = sys.argv[0]
         ITERATIONS = int(sys.argv[1])
         SIZE = int(sys.argv[2])
         TEMPERATURE = float(sys.argv[3])
         PLOTFLAG = int(sys.argv[4])
-        NREPS =  int(sys.argv[5])
-        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG, NREPS)
+        main(PROGNAME, ITERATIONS, SIZE, TEMPERATURE, PLOTFLAG)
     else:
         print("Usage: python {} <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>".format(sys.argv[0]))
 #=======================================================================
