@@ -19,11 +19,13 @@ python LebwohlLasher_numba_parallel.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFL
 #### Serial Cython
 
 python setup_serial_LL.py build_ext -fi 
+
 python run_serial_LL <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>
 
 #### Parallel Cython
 
 python setup_parallel_LL.py build_ext -fi 
+
 python run_parallel_LL <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG> <THREADS>
 
 #### MPI
