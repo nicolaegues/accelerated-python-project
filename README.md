@@ -4,8 +4,6 @@
 This project explores various methods to accelerate the Pytohn implementation of the Lebwohl
 Lasher model, including NumPy vectorisation, Numba (serial and parallel), Cython (serial and parallel), and MPI. 
 
-explain iterations, size, temperature, plotflag, threads
-
 
 ### How to run: 
 
