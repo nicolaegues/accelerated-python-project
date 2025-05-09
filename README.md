@@ -3,6 +3,16 @@
 
 This project explores various methods to accelerate the Pytohn implementation of the Lebwohl
 Lasher model, including NumPy vectorisation, Numba (serial and parallel), Cython (serial and parallel), and MPI. 
+The corresponding report is attached under  `Python_acceleration_report`.
+
+The Lebwohl-Lasher model is a Monte Carlo simulation designed to study the ordering behaviour of liquid crystals.
+The Python implementation of this model used in this project simulates a two-dimensional square lattice of molecules,
+which are each represented by an orientation angle. During every Monte Carlo step, each molecule experiences random
+orientation changes, whereby the acceptance criteria is based on minimisatin of the energy and Boltzman probability.
+During the simulation, the total energy of the lattice and the order parameter are recorded over time.
+
+However, the simulation can be very computationally expensive- especially as the problem size and iterations are
+increased. This project therefore focuses on exploring different methods of accelerating the python code.
 
 
 ### How to run: 
